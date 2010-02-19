@@ -8,8 +8,11 @@
 class Helpers
 {
  public:
-  static void Tokenize(const std::string& str,
+  static void tokenize(const std::string& str,
 		std::vector<std::string>& tokens,
-		const std::string& delimiters = " ");
+		       const std::string& delimiters = " \t");
+  static size_t countChars(const std::string& str, char c);
+  static float str2float(const std::string& str);
+  static int str2int(const std::string& str);
 };
 #endif //_HELPERS_H
