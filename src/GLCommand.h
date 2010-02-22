@@ -1,8 +1,8 @@
 #ifndef _GL_COMMAND_H
 #define _GL_COMMAND_H
 
-#include <GL/gl.h>
-#include <GL/glu.h>
+#include <GL/glew.h>
+//#include <GL/glu.h>
 
 #include <map>
 #include <string>

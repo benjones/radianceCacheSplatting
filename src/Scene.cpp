@@ -4,6 +4,8 @@
 #include <fstream>
 #include <string>
 #include "Helpers.h"
+#include <GL/glut.h>
+
 
 Scene::Scene(std::istream& ins)
 {
@@ -172,16 +174,8 @@ void Scene::parseScene(std::istream& ins)
 
 void Scene::directIllumination()
 {
-  glMatrixMode(GL_MODELVIEW);
-  glLoadIdentity();
-  for(std::vector<GLCommand*>::iterator i = view.begin();
-      i != view.end(); ++i)
-    {
-      (*i)->execute();
-    }
-  for(std::vector<GLCommand*>::iterator i = model.begin();
-      i != model.end(); ++i)
-    (*i)->execute();
+  glClear(GL_COLOR_BUFFER_BIT);
+  glClear(GL_DEPTH_BUFFER_BIT);
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
@@ -192,4 +186,16 @@ void Scene::directIllumination()
     }
 
 
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  for(std::vector<GLCommand*>::iterator i = view.begin();
+      i != view.end(); ++i)
+    {
+      (*i)->execute();
+    }
+  for(std::vector<GLCommand*>::iterator i = model.begin();
+      i != model.end(); ++i)
+    (*i)->execute();
+  glFlush();
+  glutSwapBuffers();
 }

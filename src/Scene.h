@@ -27,5 +27,6 @@ class Scene
   std::vector<GLCommand*> model, view, projection;//store the commands
 						  //to run
   std::map<std::string, SceneObject*> sceneObjects;
+
 };
 #endif //_SCENE_H

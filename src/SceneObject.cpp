@@ -4,24 +4,68 @@
 #include "Helpers.h"
 #include <algorithm>
 #include <limits>
+#include <utility>
+#include <map>
+
+
+#define GL_GLEXT_PROTOTYPES 1
+#include<GL/glew.h>
+//#include<GL/glu.h>
+//#include<GL/glext.h>
+
+#define BUFFER_OFFSET(i) ((char *)NULL + (i))
+
 SceneObject::SceneObject(std::istream& ins)
 {
   parseOBJ(ins);
+  //enable arrays
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glEnableClientState(GL_INDEX_ARRAY);
+  glEnableClientState(GL_NORMAL_ARRAY);
+  glEnableClientState(GL_COLOR_ARRAY);
+
+  //allocate buffers
+  glGenBuffers(1, &VBOID);
+  glBindBuffer(GL_ARRAY_BUFFER, VBOID);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(VertexData)*vertices.size(), 
+	       &vertices[0], GL_STATIC_DRAW);
+
+  glGenBuffers(1, &IBOID);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBOID);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned short)*indeces.size(),&indeces[0],
+	       GL_STATIC_DRAW);
+  //set up pointers
+  glBindBuffer(GL_ARRAY_BUFFER, VBOID);
+  glVertexPointer(3, GL_FLOAT, sizeof(VertexData), BUFFER_OFFSET(0));
+
+  
+  glNormalPointer( GL_FLOAT, sizeof(VertexData), 
+		  BUFFER_OFFSET((sizeof(float)*3)));
+  glColorPointer(3, GL_FLOAT, sizeof(VertexData), 
+		 BUFFER_OFFSET(sizeof(float)*6));  
+
   dumpData();
 }
 
 void SceneObject::drawTriangles()
 {
   std::cout << "drawing triangles" << std::endl;
-
+  glBindBuffer(GL_ARRAY_BUFFER, VBOID);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBOID);
+  glDrawElements(GL_TRIANGLES, indeces.size(), GL_UNSIGNED_SHORT, 
+		 BUFFER_OFFSET(0));
+  
 }
 
 
 void SceneObject::parseOBJ(std::istream& ins)
 {
+
+  std::vector<SceneObject::Vec3D> positions, normals;
+  std::vector<Face> faces;
   std::string curLine;
   std::vector<std::string> tokens;
-  size_t nVertices = 0, nNormals= 0;//ignore other parts of .obj format
+  //size_t nVertices = 0, nNormals= 0;//ignore other parts of .obj format
   while (std::getline(ins, curLine))
     {
       //strip off comments:
@@ -46,18 +90,19 @@ void SceneObject::parseOBJ(std::istream& ins)
 	x = Helpers::str2float(tokens[1]);
 	y = Helpers::str2float(tokens[2]);
 	z = Helpers::str2float(tokens[3]);
-	if(vertices.size() <= std::max(nVertices, nNormals -1))
+	positions.push_back(SceneObject::Vec3D(x,y,z));
+	/*if(vertices.size() <= std::max(nVertices, nNormals -1))
 	  {
-	    vertices.push_back(VertexData(x,y,z,0,0,0,0,0,0));
+	    vertices.push_back(VertexData(x,y,z,0,0,0,1,0,0));
 	  }
 	else
 	  {
 	    vertices[nVertices].x = x;
 	    vertices[nVertices].y = y;
 	    vertices[nVertices].z = z;
-	  }
+	    }*/
 	//std::cout << vertices[nVertices].x << vertices[nVertices].y << vertices[nVertices].z << std::endl;
-	nVertices++;
+	//nVertices++;
       }
 
       //texture coordinates
@@ -85,10 +130,13 @@ void SceneObject::parseOBJ(std::istream& ins)
 	nx = Helpers::str2float(tokens[1]);
 	ny = Helpers::str2float(tokens[2]);
 	nz = Helpers::str2float(tokens[3]);
-	if(vertices.size() <= std::max(nVertices -1, nNormals))
+
+	normals.push_back(SceneObject::Vec3D(nx,ny,nz));
+
+	/*if(vertices.size() <= std::max(nVertices -1, nNormals))
 	  {
 	    std::cout << "pushing normal" << nVertices << nNormals <<  vertices.size() << curLine << std::endl;
-	    vertices.push_back(VertexData(0,0,0,nx,ny,nz,0,0,0));
+	    vertices.push_back(VertexData(0,0,0,nx,ny,nz,1,0,0));
 	  }
 	else
 	  {
@@ -96,7 +144,7 @@ void SceneObject::parseOBJ(std::istream& ins)
 	    vertices[nNormals].ny = ny;
 	    vertices[nNormals].nz = nz;
 	  }
-	nNormals++;
+	  nNormals++;*/
       }
       else if(tokens[0] == "f"){
 	//Faces.  TODO: Handle non-triangles (quads/polygons)
@@ -226,6 +274,76 @@ void SceneObject::parseOBJ(std::istream& ins)
       tokens.clear();
     }
 
+  //put into packed array for VBO
+  std::map<std::pair<size_t, size_t>, unsigned short> indexMap;
+  for(std::vector<Face>::iterator i = faces.begin(); i != faces.end(); ++i)
+    {
+      std::map<std::pair<size_t, size_t>, unsigned short>::iterator f;
+      f = indexMap.find(std::pair<size_t, size_t>( i->v1, i->n1 ));
+      if( f == indexMap.end())
+	{
+	  //haven't seen this position/normal combination before, so
+	  //create a new vertex entry and put it in the indexMap
+	  Vec3D p = positions[i->v1];
+	  Vec3D n = normals[i->n1];
+	  vertices.push_back(VertexData(p.x, p.y, p.z, n.x, n.y, n.z,
+					1,0,0));//TODO MAKE IT NOT RED
+	  indexMap.insert(std::pair<std::pair<size_t, size_t>, 
+			  unsigned short>(std::pair<size_t, size_t>
+					  (i->v1, i->n1),
+					  vertices.size() -1));
+	  
+	  indeces.push_back(vertices.size() -1);
+	}
+      else
+	{
+	  //already seen this, just use the index
+	  indeces.push_back(f->second);
+	}
+      f = indexMap.find(std::pair<size_t, size_t>( i->v2, i->n2 ));
+      if( f == indexMap.end())
+	{
+	  //haven't seen this position/normal combination before, so
+	  //create a new vertex entry and put it in the indexMap
+	  Vec3D p = positions[i->v2];
+	  Vec3D n = normals[i->n2];
+	  vertices.push_back(VertexData(p.x, p.y, p.z, n.x, n.y, n.z,
+					1,0,0));//TODO MAKE IT NOT RED
+	  indexMap.insert(std::pair<std::pair<size_t, size_t>, 
+			  unsigned short>(std::pair<size_t, size_t>
+					  (i->v2, i->n2),	
+					  vertices.size() -1));
+	  
+	  indeces.push_back(vertices.size() -1);
+	}
+      else
+	{
+	  //already seen this, just use the index
+	  indeces.push_back(f->second);
+	}
+      f = indexMap.find(std::pair<size_t, size_t>( i->v3, i->n3 ));
+      if( f == indexMap.end())
+	{
+	  //haven't seen this position/normal combination before, so
+	  //create a new vertex entry and put it in the indexMap
+	  Vec3D p = positions[i->v3];
+	  Vec3D n = normals[i->n3];
+	  vertices.push_back(VertexData(p.x, p.y, p.z, n.x, n.y, n.z,
+					1,0,0));//TODO MAKE IT NOT RED
+	  indexMap.insert(std::pair<std::pair<size_t, size_t>, 
+			  unsigned short>(std::pair<size_t, size_t>
+					  (i->v3, i->n3),
+					  vertices.size() -1));
+	  
+	  indeces.push_back(vertices.size() -1);
+	}
+      else
+	{
+	  //already seen this, just use the index
+	  indeces.push_back(f->second);
+	}
+    }
+  std::cout << "parsing completed" << std::endl;
 }
 
 
@@ -238,10 +356,9 @@ void SceneObject::dumpData()
       std::cout << "x:" << i->x << "\ty:" << i->y << "\tz:" << i->z << "\tnx:" << i->nx << "\tny:" <<i->ny << "\tnz:" << i->nz  <<std::endl;
     }
       
-  std::cout << "faces" << std::endl;
-  for(std::vector<Face>::iterator i = faces.begin(); i != faces.end(); ++i)
+  std::cout << "triangles" << std::endl;
+  for(std::vector<unsigned short>::iterator i = indeces.begin(); i != indeces.end(); ++i)
     {
-      std::cout << "v1:" << i->v1 << "\tv2:" <<i->v2 << "\tv3:" << i->v3 <<
-	"\tn1:" << i->n1 << "\tn2:" <<i->n2 << "\tn3:" <<i->n3 << std::endl;
+      std::cout << *i << std::endl;
     }
 }

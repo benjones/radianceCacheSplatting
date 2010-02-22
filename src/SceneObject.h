@@ -2,6 +2,8 @@
 #define _SCENE_OBJECT_H
 #include <istream>
 #include <vector>
+#include <GL/glew.h>
+
 
 class SceneObject
 {
@@ -30,11 +32,21 @@ class SceneObject
   :v1(_v1), v2(_v2), v3(_v3), n1(_n1), n2(_n2), n3(_n3)
     {}
   };
+
+  struct Vec3D
+  {
+    float x,y,z;
+    Vec3D(float _x, float _y, float _z)
+    :x(_x), y(_y), z(_z)
+    {}
+  };
   
   void parseOBJ(std::istream& ins);
   void dumpData();
   std::vector<VertexData> vertices;
-  std::vector<Face> faces;
+  //std::vector<Face> faces;
+  std::vector<unsigned short> indeces;
+  GLuint VBOID, IBOID;//buffers for vertices/indeces
 };
 
 

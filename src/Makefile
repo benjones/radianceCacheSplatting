@@ -5,7 +5,8 @@
 ####### FLAGS
 
 CC      = g++
-LIBS    = -lGL -lGLU
+#LIBS = -lbugle -lglut -lGLEW
+LIBS    = -lGLEW -lglut #-lGLU
 BASE_DIR = .
 INCLUDES = -I$(BASE_DIR)
 
