@@ -9,6 +9,8 @@ Scene * scn;
 
 void displayWrapper()
 {
+  //std::cout << "displayWrapper" << std::endl;
+  //std::cin.get();
   scn->directIllumination();
 }
 
@@ -22,6 +24,9 @@ int main(int argc, char** argv)
   glutInitWindowPosition(10,10);
   glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
  
+ 
+  glutCreateWindow("Radiance Cache Splatting");
+
   GLenum err = glewInit();
   if (GLEW_OK != err)
     {
@@ -29,8 +34,8 @@ int main(int argc, char** argv)
       std::cerr <<  "Error: " << glewGetErrorString(err) << std::endl;
       
     }
- 
-  glutCreateWindow("Radiance Cache Splatting");
+
+
   glClearColor(0.0, 0.0,0.0,0.0);
   glEnable(GL_DEPTH_TEST);
   glutDisplayFunc(displayWrapper);
@@ -44,7 +49,7 @@ int main(int argc, char** argv)
   ins.open(argv[1]);
   scn = new Scene(ins);
 
-
+  
   glutMainLoop();
 
   return 0;

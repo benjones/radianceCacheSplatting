@@ -1,3 +1,7 @@
 cam 0 0 -10 0 0 0 0 1 0
 obj test.obj
+push
+trans -4 0 0
+obj test.obj
+pop
 proj 60 1.33 1 100

@@ -17,7 +17,7 @@ INCLUDES = -I$(BASE_DIR)
 #CFLAGS	= -Wall -pg -O6 -DNDEBUG $(INCLUDES)
 
 # Debugging flags, insert '#' to deactivate.
-CFLAGS	= -Wall -g $(INCLUDES)
+CFLAGS	= -Wall -g -U_FORTIFY_SOURCE $(INCLUDES)
 
 ####### Files
 
@@ -26,14 +26,14 @@ TARGET  = radianceSplat
 
 # All headers in the project. Add your new header files here.
 # Note that template .cpp files that are #include'd somewhere should go here
-HEADERS = SceneObject.h Helpers.h GLCommand.h Scene.h
+HEADERS = SceneObject.h Helpers.h GLCommand.h Scene.h Light.h
 
 # All source files in the project. Add your new source files here.
-SOURCES = radianceSplat.cpp SceneObject.cpp Helpers.cpp Scene.cpp
+SOURCES = radianceSplat.cpp SceneObject.cpp Helpers.cpp Scene.cpp Light.cpp
 
 # All object files in the project. Add .o versions of all your
 # _untemplated_ .cpp files (probably no new files here for this project).
-OBJECTS = radianceSplat.o SceneObject.o Helpers.o Scene.o
+OBJECTS = radianceSplat.o SceneObject.o Helpers.o Scene.o Light.o
 
 ###### 
 # Uncomment this version to make test rather than word_count (and

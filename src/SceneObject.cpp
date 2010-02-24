@@ -32,8 +32,8 @@ SceneObject::SceneObject(std::istream& ins)
 
   glGenBuffers(1, &IBOID);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBOID);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned short)*indeces.size(),&indeces[0],
-	       GL_STATIC_DRAW);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned short)*indeces.size()
+	       ,&indeces[0], GL_STATIC_DRAW);
   //set up pointers
   glBindBuffer(GL_ARRAY_BUFFER, VBOID);
   glVertexPointer(3, GL_FLOAT, sizeof(VertexData), BUFFER_OFFSET(0));
@@ -45,16 +45,22 @@ SceneObject::SceneObject(std::istream& ins)
 		 BUFFER_OFFSET(sizeof(float)*6));  
 
   dumpData();
+  // std::cout << "pause" << std::endl;
+  //std::cin.get();
 }
 
 void SceneObject::drawTriangles()
 {
   std::cout << "drawing triangles" << std::endl;
+  //std::cout << "pause" << std::endl;
+  //std::cin.get();
   glBindBuffer(GL_ARRAY_BUFFER, VBOID);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBOID);
   glDrawElements(GL_TRIANGLES, indeces.size(), GL_UNSIGNED_SHORT, 
 		 BUFFER_OFFSET(0));
-  
+  //std::cout << "drew triangles" << std::endl;
+  //std::cout << "pause" << std::endl;
+  //std::cin.get();
 }
 
 

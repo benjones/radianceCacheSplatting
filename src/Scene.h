@@ -15,6 +15,7 @@
 #include <string>
 #include <map>
 #include "SceneObject.h"
+#include <GL/glew.h>
 
 class Scene
 {
@@ -28,5 +29,7 @@ class Scene
 						  //to run
   std::map<std::string, SceneObject*> sceneObjects;
 
+  size_t numLights;
+  static const GLenum lights[8]; 
 };
 #endif //_SCENE_H

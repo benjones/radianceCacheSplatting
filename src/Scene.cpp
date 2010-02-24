@@ -5,9 +5,13 @@
 #include <string>
 #include "Helpers.h"
 #include <GL/glut.h>
+#include "Light.h"
 
+const GLenum Scene::lights[8] = {GL_LIGHT0, GL_LIGHT1, GL_LIGHT2, GL_LIGHT3,
+				 GL_LIGHT4, GL_LIGHT5, GL_LIGHT6, GL_LIGHT7};
 
 Scene::Scene(std::istream& ins)
+ :numLights(0)
 {
   parseScene(ins);
 
@@ -150,11 +154,16 @@ void Scene::parseScene(std::istream& ins)
 	      std::ifstream istr;
 	      istr.open(tokens[1].c_str());
 	      SceneObject* sop = new SceneObject(istr);
-
-	      std::pair<std::map<std::string, SceneObject*>::iterator,bool> ret;
-	      ret = sceneObjects.insert(std::pair<std::string, SceneObject*>(tokens[1], sop));
+	      //std::cout << "scene object created" << std::endl;
+	      //std::cin.get();
+	      std::pair<std::map
+		<std::string, SceneObject*>::iterator,bool> ret;
+	      ret = sceneObjects.insert(std::pair<std::string, SceneObject*>
+					(tokens[1], sop));
 	      
 	      model.push_back(new GLObject(ret.first));
+	      //std::cout << "model pushed" << std::endl;
+	      //std::cin.get();
 	    } 
 	  else
 	    {
@@ -163,6 +172,24 @@ void Scene::parseScene(std::istream& ins)
 	    }
 	  
 	}
+      else if(tokens[0] == "light")
+	{
+	  if(tokens.size() != 2)
+	    {
+	      std::cerr << "Ignoring malformed light line" << 
+		curLine <<std::endl;
+	      tokens.clear();
+	      continue;
+	    }
+	  else 
+	    {
+	      std::ifstream ltStr;
+	      ltStr.open(tokens[1].c_str());
+	      Light * light = new Light(ltStr, lights[numLights]);
+	      model.push_back(new GLLight(light));
+	      numLights++;
+	    }
+	}
       else
 	{
 	  std::cerr << "ignoring malformed line" <<curLine <<std::endl;
@@ -170,12 +197,17 @@ void Scene::parseScene(std::istream& ins)
 
       tokens.clear();
     }
+  std::cout << "Scene read" << std::endl;
+  //std::cin.get();
 }
 
 void Scene::directIllumination()
 {
   glClear(GL_COLOR_BUFFER_BIT);
   glClear(GL_DEPTH_BUFFER_BIT);
+
+  //std::cout << "cleared" << std::endl;
+  //std::cin.get();
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
@@ -185,6 +217,8 @@ void Scene::directIllumination()
       (*i)->execute();
     }
 
+  //std::cout << "Projection finished" << std::endl;
+  //std::cin.get();
 
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
@@ -193,9 +227,17 @@ void Scene::directIllumination()
     {
       (*i)->execute();
     }
+  //std::cout << "view done" << std::endl;
+  //std::cin.get();
   for(std::vector<GLCommand*>::iterator i = model.begin();
       i != model.end(); ++i)
-    (*i)->execute();
+    {
+      (*i)->execute();
+      
+    }
+
+  //std::cout << "model done" << std::endl;
+  //std::cin.get();
   glFlush();
   glutSwapBuffers();
 }

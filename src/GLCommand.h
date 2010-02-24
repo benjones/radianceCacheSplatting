@@ -4,9 +4,11 @@
 #include <GL/glew.h>
 //#include <GL/glu.h>
 
+#include <iostream>
 #include <map>
 #include <string>
 #include "SceneObject.h"
+#include "Light.h"
 //way to store matrix push, pop, translate, rotate and scale commands
 //from scene file
 
@@ -21,14 +23,31 @@ class GLObject : public GLCommand
 {
  public:
   GLObject(std::map<const std::string, SceneObject*>::iterator _it)
-    :it(it)
+    :it(_it)
   {}
   virtual void execute()
   {
+    //std::cout << "object execute" << std::endl;
+    //std::cin.get();
     it->second->drawTriangles();
+    //std::cout << "drew object" << std::endl;
   }
  private:
   std::map<const std::string, SceneObject*>::iterator it;
+};
+
+class GLLight : public GLCommand
+{
+ public:
+  GLLight(Light* _light)
+    : light(_light)
+  {}
+  virtual void execute()
+  {
+    light->execute();
+  }
+ private:
+  Light* light;
 };
 
 class GLULookAt : public GLCommand
