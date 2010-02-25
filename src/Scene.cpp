@@ -190,6 +190,31 @@ void Scene::parseScene(std::istream& ins)
 	      numLights++;
 	    }
 	}
+
+      else if(tokens[0] == "brdf")
+	{
+	  if(tokens.size() < 3)
+	    {
+	      std::cerr << "ignoring malformed brdf line" <<
+		curLine << std::endl;
+	      tokens.clear();
+	      continue;
+	    }
+	  if(tokens[1] == "diffuse")
+	    {
+	      if( tokens.size() != 6)
+		{
+		  std::cerr << "ignoring malformed diffuse line" <<
+		    curLine << std::endl;
+		}
+	      GLfloat r,g,b,a;
+	      r = Helpers::str2float(tokens[2]);
+	      g = Helpers::str2float(tokens[3]);
+	      b = Helpers::str2float(tokens[4]);
+	      a = Helpers::str2float(tokens[5]);
+	      model.push_back(new GLBRDF(r,g,b,a));
+	    }
+	}
       else
 	{
 	  std::cerr << "ignoring malformed line" <<curLine <<std::endl;
@@ -203,8 +228,7 @@ void Scene::parseScene(std::istream& ins)
 
 void Scene::directIllumination()
 {
-  glClear(GL_COLOR_BUFFER_BIT);
-  glClear(GL_DEPTH_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   //std::cout << "cleared" << std::endl;
   //std::cin.get();

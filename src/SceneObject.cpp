@@ -22,7 +22,7 @@ SceneObject::SceneObject(std::istream& ins)
   glEnableClientState(GL_VERTEX_ARRAY);
   glEnableClientState(GL_INDEX_ARRAY);
   glEnableClientState(GL_NORMAL_ARRAY);
-  glEnableClientState(GL_COLOR_ARRAY);
+  //glEnableClientState(GL_COLOR_ARRAY);
 
   //allocate buffers
   glGenBuffers(1, &VBOID);
@@ -36,14 +36,7 @@ SceneObject::SceneObject(std::istream& ins)
 	       ,&indeces[0], GL_STATIC_DRAW);
   //set up pointers
   glBindBuffer(GL_ARRAY_BUFFER, VBOID);
-  glVertexPointer(3, GL_FLOAT, sizeof(VertexData), BUFFER_OFFSET(0));
-
   
-  glNormalPointer( GL_FLOAT, sizeof(VertexData), 
-		  BUFFER_OFFSET((sizeof(float)*3)));
-  glColorPointer(3, GL_FLOAT, sizeof(VertexData), 
-		 BUFFER_OFFSET(sizeof(float)*6));  
-
   dumpData();
   // std::cout << "pause" << std::endl;
   //std::cin.get();
@@ -55,6 +48,14 @@ void SceneObject::drawTriangles()
   //std::cout << "pause" << std::endl;
   //std::cin.get();
   glBindBuffer(GL_ARRAY_BUFFER, VBOID);
+  glVertexPointer(3, GL_FLOAT, sizeof(VertexData), BUFFER_OFFSET(0));
+
+  
+  glNormalPointer( GL_FLOAT, sizeof(VertexData), 
+		  BUFFER_OFFSET((sizeof(float)*3)));
+  //glColorPointer(3, GL_FLOAT, sizeof(VertexData), 
+  //		 BUFFER_OFFSET(sizeof(float)*6));  
+
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBOID);
   glDrawElements(GL_TRIANGLES, indeces.size(), GL_UNSIGNED_SHORT, 
 		 BUFFER_OFFSET(0));
@@ -292,8 +293,8 @@ void SceneObject::parseOBJ(std::istream& ins)
 	  //create a new vertex entry and put it in the indexMap
 	  Vec3D p = positions[i->v1];
 	  Vec3D n = normals[i->n1];
-	  vertices.push_back(VertexData(p.x, p.y, p.z, n.x, n.y, n.z,
-					1,0,0));//TODO MAKE IT NOT RED
+	  vertices.push_back(VertexData(p.x, p.y, p.z, n.x, n.y, n.z));
+					//1,0,0));//TODO MAKE IT NOT RED
 	  indexMap.insert(std::pair<std::pair<size_t, size_t>, 
 			  unsigned short>(std::pair<size_t, size_t>
 					  (i->v1, i->n1),
@@ -313,8 +314,8 @@ void SceneObject::parseOBJ(std::istream& ins)
 	  //create a new vertex entry and put it in the indexMap
 	  Vec3D p = positions[i->v2];
 	  Vec3D n = normals[i->n2];
-	  vertices.push_back(VertexData(p.x, p.y, p.z, n.x, n.y, n.z,
-					1,0,0));//TODO MAKE IT NOT RED
+	  vertices.push_back(VertexData(p.x, p.y, p.z, n.x, n.y, n.z));
+			     //1,0,0));//TODO MAKE IT NOT RED
 	  indexMap.insert(std::pair<std::pair<size_t, size_t>, 
 			  unsigned short>(std::pair<size_t, size_t>
 					  (i->v2, i->n2),	
@@ -334,8 +335,8 @@ void SceneObject::parseOBJ(std::istream& ins)
 	  //create a new vertex entry and put it in the indexMap
 	  Vec3D p = positions[i->v3];
 	  Vec3D n = normals[i->n3];
-	  vertices.push_back(VertexData(p.x, p.y, p.z, n.x, n.y, n.z,
-					1,0,0));//TODO MAKE IT NOT RED
+	  vertices.push_back(VertexData(p.x, p.y, p.z, n.x, n.y, n.z));
+			     //1,0,0));//TODO MAKE IT NOT RED
 	  indexMap.insert(std::pair<std::pair<size_t, size_t>, 
 			  unsigned short>(std::pair<size_t, size_t>
 					  (i->v3, i->n3),

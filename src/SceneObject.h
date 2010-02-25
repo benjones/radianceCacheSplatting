@@ -15,11 +15,11 @@ class SceneObject
   {
     float x,y,z; //vertex
     float nx, ny, nz; //normal
-    float r,g,b; //color TODO: Actual material props
+    //float r,g,b; //color TODO: Actual material props
     
-  VertexData(float _x, float _y, float _z, float _nx, float _ny, float _nz,
-	     float _r, float _g, float _b)
-  :x(_x), y(_y), z(_z), nx(_nx), ny(_ny), nz(_nz), r(_r), g(_g), b(_b)
+  VertexData(float _x, float _y, float _z, float _nx, float _ny, float _nz)
+	     //float _r, float _g, float _b)
+  :x(_x), y(_y), z(_z), nx(_nx), ny(_ny), nz(_nz)//, r(_r), g(_g), b(_b)
     {}
   };
   struct Face

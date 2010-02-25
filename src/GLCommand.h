@@ -50,6 +50,25 @@ class GLLight : public GLCommand
   Light* light;
 };
 
+class GLBRDF : public GLCommand
+{
+
+ public:
+  GLBRDF(GLfloat r,GLfloat g,GLfloat b,GLfloat a)
+    {
+      rgba[0] = r;
+      rgba[1] = g;
+      rgba[2] = b;
+      rgba[3] = a;
+    }
+  virtual void execute()
+  {
+    glMaterialfv(GL_FRONT, GL_DIFFUSE, rgba);
+  }
+ private:
+  GLfloat rgba[4];
+};
+
 class GLULookAt : public GLCommand
 {
  public:

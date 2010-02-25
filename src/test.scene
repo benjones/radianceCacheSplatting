@@ -1,7 +1,14 @@
 cam 0 0 -10 0 0 0 0 1 0
+light test.light
+light test2.light
+brdf diffuse 1 0 0 1
 obj test.obj
 push
 trans -4 0 0
+brdf diffuse 0 1 0 1
 obj test.obj
 pop
-proj 60 1.33 1 100
+#floor
+brdf diffuse 0 0 1 1
+obj floor.obj
+proj 60 1.0 1 100

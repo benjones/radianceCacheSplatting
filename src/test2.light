@@ -1,0 +1,5 @@
+ambient 0 0 0 1
+diffuse .1 1 1 1
+specular 0 0 0 1
+position 0 10 0 1
+spotDirection 0 -1 0
