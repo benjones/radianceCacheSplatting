@@ -10,6 +10,10 @@ class Light
   Light(std::istream& ins, GLenum _lightNum);
   void execute();//actually call light commands
 
+  float* getPosition() {return position;}
+  float* getDirection() {return spotDirection;}
+  float getCutoff(){return spotCutoff;}
+
  private:
   void parseLight(std::istream& ins);
   

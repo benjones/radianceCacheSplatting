@@ -7,6 +7,9 @@
 
 Scene * scn;
 
+
+unsigned windWidth = 800, windHeight = 800;
+
 void displayWrapper()
 {
   //std::cout << "displayWrapper" << std::endl;
@@ -20,9 +23,10 @@ int main(int argc, char** argv)
   
   
   glutInit(&argc, argv);
-  glutInitWindowSize(800,800);
+  glutInitWindowSize(windWidth,windHeight);
   glutInitWindowPosition(10,10);
-  glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+  glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | 
+		      GLUT_DEPTH | GLUT_ACCUM);
  
  
   glutCreateWindow("Radiance Cache Splatting");
@@ -36,8 +40,11 @@ int main(int argc, char** argv)
     }
 
 
-  glClearColor(0.0, 0.0,0.0,0.0);
+  glClearColor(1, .5,0.0, 0);
   glEnable(GL_DEPTH_TEST);
+  glEnable(GL_CULL_FACE);
+  glEnable(GL_NORMALIZE);
+
   glutDisplayFunc(displayWrapper);
 
   std::cout << glGetString(GL_VENDOR) << std::endl 

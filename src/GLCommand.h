@@ -36,7 +36,7 @@ class GLObject : public GLCommand
   std::map<const std::string, SceneObject*>::iterator it;
 };
 
-class GLLight : public GLCommand
+/*class GLLight : public GLCommand
 {
  public:
   GLLight(Light* _light)
@@ -48,7 +48,7 @@ class GLLight : public GLCommand
   }
  private:
   Light* light;
-};
+  };*/
 
 class GLBRDF : public GLCommand
 {
@@ -82,6 +82,12 @@ class GLULookAt : public GLCommand
   {
     gluLookAt(ix, iy, iz, cx, cy, cz, ux, uy, uz);
   }
+  void getEye(float eye[])
+  { eye[0] = ix; eye[1] = iy; eye[2] = iz;}
+  void getCenter(float cen[])
+  {cen[0] = cx; cen[1] = cy; cen[2] = cz;}
+  void getUp(float up[])
+  {up[0] = ux; up[1] = uy; up[2] = uz;}
  private:
   GLdouble ix, iy, iz, cx, cy, cz, ux, uy, uz;
 };

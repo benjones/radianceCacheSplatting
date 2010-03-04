@@ -44,7 +44,7 @@ SceneObject::SceneObject(std::istream& ins)
 
 void SceneObject::drawTriangles()
 {
-  std::cout << "drawing triangles" << std::endl;
+  //std::cout << "drawing triangles" << std::endl;
   //std::cout << "pause" << std::endl;
   //std::cin.get();
   glBindBuffer(GL_ARRAY_BUFFER, VBOID);

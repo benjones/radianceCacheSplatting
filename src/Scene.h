@@ -17,6 +17,9 @@
 #include "SceneObject.h"
 #include <GL/glew.h>
 
+extern unsigned windWidth;
+extern unsigned windHeight;
+
 class Scene
 {
  public:
@@ -25,11 +28,17 @@ class Scene
  private:
   void parseScene(std::istream& ins);
 
-  std::vector<GLCommand*> model, view, projection;//store the commands
-						  //to run
+  std::vector<GLCommand*> model;
+  GLUPerspective* projection;//store the commands
+  GLULookAt* view;
+//to run
+  std::vector<Light*> lights;
   std::map<std::string, SceneObject*> sceneObjects;
 
   size_t numLights;
-  static const GLenum lights[8]; 
+  static const GLenum lightEnums[8]; 
+
+  GLuint shadowMapTexture;
+  unsigned shadowMapSize;
 };
 #endif //_SCENE_H
