@@ -318,7 +318,7 @@ void Scene::directIllumination()
       glColorMask(0,0,0,0);//small performance boosts
 
       glDisable(GL_LIGHTING);
-
+      glEnable(GL_DEPTH_TEST);
       //draw geometry
       glPushMatrix();
       for(std::vector<GLCommand*>::iterator i = model.begin();
@@ -335,7 +335,7 @@ void Scene::directIllumination()
 
 
 
-      glCopyTexSubImage2D(GL_TEXTURE_2D, 0,GL_DEPTH_COMPONENT,0,0, 
+      glCopyTexImage2D(GL_TEXTURE_2D, 0,GL_DEPTH_COMPONENT,0,0, 
 			  shadowMapSize, shadowMapSize,0);
 
       glViewport(0, 0, windWidth, windHeight);
