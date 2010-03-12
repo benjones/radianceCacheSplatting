@@ -25,6 +25,25 @@ Scene::Scene(std::istream& ins)
 
 }
 
+Scene::~Scene()
+{
+  glDeleteTextures(1, &shadowMapTexture);
+  for(std::vector<GLCommand*>::iterator i = model.begin();
+      i != model.end(); ++i)
+    delete (*i);
+  model.clear();
+  delete projection;
+  delete view;
+  for(std::vector<Light*>::iterator i = lights.begin();
+      i != lights.end(); ++i)
+    delete (*i);
+  lights.clear();
+  for(std::map<std::string, SceneObject*>::iterator i = sceneObjects.begin();
+      i != sceneObjects.end(); ++i)
+    delete (*i).second;
+  sceneObjects.clear();
+}
+
 void Scene::parseScene(std::istream& ins)
 {
   std::string curLine;
@@ -262,6 +281,7 @@ void Scene::directIllumination()
 
   for(size_t light = 0; light < numLights; ++light)
     {
+      glMatrixMode(GL_MODELVIEW);//use modelview for all
       //get the view/projection matrices
       glPushMatrix();
       glLoadIdentity();
@@ -315,14 +335,20 @@ void Scene::directIllumination()
 
 
 
-      glCopyTexSubImage2D(GL_TEXTURE_2D, 0,0,0,0,0, shadowMapSize,
-			  shadowMapSize);
+      glCopyTexSubImage2D(GL_TEXTURE_2D, 0,GL_DEPTH_COMPONENT,0,0, 
+			  shadowMapSize, shadowMapSize,0);
+
+      glViewport(0, 0, windWidth, windHeight);
 
       glCullFace(GL_BACK);
       glShadeModel(GL_SMOOTH);
       glColorMask(1,1,1,1);
       
+      glMatrixMode(GL_MODELVIEW);
+      glPushMatrix();
+      glLoadIdentity();
       lights[light]->execute();//enable light and set its params
+      glPopMatrix();
       glClear(GL_DEPTH_BUFFER_BIT);
       glMatrixMode(GL_PROJECTION);
       glLoadMatrixf(camProjMatrix);
@@ -330,7 +356,6 @@ void Scene::directIllumination()
       glMatrixMode(GL_MODELVIEW);
       glLoadMatrixf(camViewMatrix);
 
-      glViewport(0, 0, windWidth, windHeight);
       
       //set up bias matrix
       float bias[16];
@@ -341,13 +366,17 @@ void Scene::directIllumination()
       glMultMatrixf(lightProjMatrix);
       glMultMatrixf(lightViewMatrix);
       glGetFloatv(GL_MODELVIEW_MATRIX, bias);
-      
+      for(int i = 0; i < 16; ++i)
+	std::cout << bias[i] << '\t';
+      std::cout << std::endl;
       //transpose it, since we need rows
       glLoadIdentity();
       glMultTransposeMatrixf(bias);
       glGetFloatv(GL_MODELVIEW_MATRIX, bias);
       glPopMatrix();
-      
+      for(int i = 0; i < 16; ++i)
+	std::cout << bias[i] << '\t';
+      std::cout << std::endl;
       //set up tex coord generation
       
       glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_EYE_LINEAR);
@@ -435,4 +464,26 @@ void Scene::directIllumination()
   glFlush();
   glutSwapBuffers();
   glIsShader(999);
+}
+
+void Scene::noShadows()
+{
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  projection->execute();
+  
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  view->execute();
+  for(std::vector<Light*>::iterator l = lights.begin();
+      l != lights.end(); ++l)
+    (*l)->execute();
+  for(std::vector<GLCommand*>::iterator i = model.begin();
+      i != model.end(); ++i)
+    (*i)->execute();
+
+  glFlush();
+  glutSwapBuffers();
 }

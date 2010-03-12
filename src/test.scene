@@ -1,20 +1,20 @@
-cam 0 0 -10 0 0 0 0 1 0
+cam 0 10 -10 0 0 0 0 1 0
 light test.light
 #light test2.light
 brdf diffuse 1 0 0 1
 push
-#trans -1 0 0
-#obj test.obj
+trans -1 0 0
+obj test.obj
 pop
 
 push
 trans -4 0 0
-#brdf diffuse 0 1 0 1
-#obj test.obj
+brdf diffuse 0 1 0 1
+obj test.obj
 pop
 
 #wall
-brdf diffuse 1 1 1 1
+brdf diffuse 0 1 1 1
 obj wall.obj
 #floor
 brdf diffuse 0 0 1 1

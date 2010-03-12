@@ -42,6 +42,15 @@ SceneObject::SceneObject(std::istream& ins)
   //std::cin.get();
 }
 
+SceneObject::~SceneObject()
+{
+  glDeleteBuffers(1, &VBOID);
+  glDeleteBuffers(1, &IBOID);
+
+  vertices.clear();
+  indeces.clear();
+}
+
 void SceneObject::drawTriangles()
 {
   //std::cout << "drawing triangles" << std::endl;

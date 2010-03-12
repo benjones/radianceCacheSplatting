@@ -9,6 +9,7 @@ class SceneObject
 {
  public:
   SceneObject(std::istream& ins);
+  ~SceneObject();
   void drawTriangles();
  private:
   struct VertexData

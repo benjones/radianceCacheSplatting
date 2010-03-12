@@ -12,6 +12,20 @@ Light::Light(std::istream& ins, GLenum _lightNum)
   parseLight(ins);
 }
 
+Light::~Light()
+{
+  if(ambient)
+    delete ambient;
+  if (diffuse)
+    delete diffuse;
+  if (specular)
+    delete specular;
+  if(position)
+    delete position;
+  if(spotDirection)
+    delete spotDirection;
+}
+
 void Light::parseLight(std::istream& ins)
 {
   std::string curLine;
@@ -91,7 +105,7 @@ void Light::parseLight(std::istream& ins)
 	}
       else if(tokens[0] == "spotDirection")
 	{
-	  if(tokens.size() != 5)
+	  if(tokens.size() != 4)
 	    {
 	      std::cerr << "ignoring malformed spotDirection line" <<
 		curLine << std::endl;
@@ -174,7 +188,7 @@ void Light::execute()
     glLightfv(lightNum, GL_SPECULAR, specular);
   if(position)
     glLightfv(lightNum, GL_POSITION, position);
-  if(spotDirection)
+  /*if(spotDirection)
     glLightfv(lightNum, GL_SPOT_DIRECTION, spotDirection);
   if(spotExpOn)
     glLightf(lightNum, GL_SPOT_EXPONENT, spotExponent);
@@ -186,7 +200,7 @@ void Light::execute()
     glLightf(lightNum, GL_LINEAR_ATTENUATION, linearAttenuation);
   if(quadAttenOn)
     glLightf(lightNum, GL_QUADRATIC_ATTENUATION, quadraticAttenuation);
-
+  */
   glEnable(GL_LIGHTING);
   glEnable(lightNum);
 }

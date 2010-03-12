@@ -15,6 +15,7 @@ void displayWrapper()
   //std::cout << "displayWrapper" << std::endl;
   //std::cin.get();
   scn->directIllumination();
+  //scn->noShadows();
 }
 
 int main(int argc, char** argv)
@@ -40,7 +41,7 @@ int main(int argc, char** argv)
     }
 
 
-  glClearColor(1, .5,0.0, 0);
+  glClearColor(.2, .5,0.0, 0);
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_CULL_FACE);
   glEnable(GL_NORMALIZE);

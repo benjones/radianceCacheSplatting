@@ -8,6 +8,7 @@ class Light
 {
  public:
   Light(std::istream& ins, GLenum _lightNum);
+  ~Light();
   void execute();//actually call light commands
 
   float* getPosition() {return position;}

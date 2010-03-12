@@ -24,7 +24,9 @@ class Scene
 {
  public:
   Scene(std::istream& ins);
+  ~Scene();
   void directIllumination();
+  void noShadows();
  private:
   void parseScene(std::istream& ins);
 
