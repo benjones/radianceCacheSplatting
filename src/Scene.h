@@ -29,7 +29,10 @@ class Scene
   void noShadows();
  private:
   void parseScene(std::istream& ins);
-
+  void drawObjects();
+  void texMatSetup();
+  GLuint loadShader(char* filename, GLenum type);
+  void loadShadowShader();
   std::vector<GLCommand*> model;
   GLUPerspective* projection;//store the commands
   GLULookAt* view;
@@ -40,7 +43,8 @@ class Scene
   size_t numLights;
   static const GLenum lightEnums[8]; 
 
-  GLuint shadowMapTexture;
+  GLuint shadowMapTexture, FBOID, shadowProgram, shadowTexUniform;
   unsigned shadowMapSize;
+  const GLenum shadowTexEnum;
 };
 #endif //_SCENE_H

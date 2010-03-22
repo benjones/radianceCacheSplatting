@@ -15,6 +15,14 @@ class Light
   float* getDirection() {return spotDirection;}
   float getCutoff(){return spotCutoff;}
 
+  void lookAt(float* lookat) 
+  {
+    lookat[0] = position[0] + spotDirection[0];
+    lookat[1] = position[1] + spotDirection[1];
+    lookat[2] = position[2] + spotDirection[2];
+  }
+
+
  private:
   void parseLight(std::istream& ins);
   

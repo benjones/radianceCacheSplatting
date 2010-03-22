@@ -1,4 +1,4 @@
-cam 0 10 -10 0 0 0 0 1 0
+cam 3 20 -10 0 0 0 0 1 0
 light test.light
 #light test2.light
 brdf diffuse 1 0 0 1

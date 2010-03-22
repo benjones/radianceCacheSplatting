@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <sstream>
 #include "Helpers.h"
 #include <GL/glut.h>
 #include "Light.h"
@@ -13,21 +14,49 @@ const GLenum Scene::lightEnums[8] = {GL_LIGHT0, GL_LIGHT1, GL_LIGHT2,
 				     GL_LIGHT6, GL_LIGHT7};
 
 Scene::Scene(std::istream& ins)
-  :projection(NULL), view(NULL), numLights(0), shadowMapSize(windWidth*2)
+  :projection(NULL), view(NULL), numLights(0), shadowMapSize(windWidth*2), 
+   shadowTexEnum(GL_TEXTURE7)
 {
   parseScene(ins);
 
   //create shadow map texture
   glGenTextures(1, &shadowMapTexture);
   glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
+  
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+  
   glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, shadowMapSize, 
 	       shadowMapSize, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL);
+  
+  glBindTexture(GL_TEXTURE_2D, 0);
 
+  glGenFramebuffersEXT(1, &FBOID);
+  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, FBOID);
+
+  glDrawBuffer(GL_NONE);
+  glReadBuffer(GL_NONE);
+
+  glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, 
+			    GL_TEXTURE_2D, shadowMapTexture, 0);
+
+  GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+  if(status != GL_FRAMEBUFFER_COMPLETE_EXT)
+    std::cerr << "Framebuffer complete fail" << std::endl;
+
+  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);//window buffer
+
+  loadShadowShader();
+
+  //  std::cout << "constructor completed" << std::endl;
 }
 
 Scene::~Scene()
 {
   glDeleteTextures(1, &shadowMapTexture);
+  glDeleteFramebuffersEXT(1, &FBOID);
   for(std::vector<GLCommand*>::iterator i = model.begin();
       i != model.end(); ++i)
     delete (*i);
@@ -93,7 +122,8 @@ void Scene::parseScene(std::istream& ins)
 	  x = Helpers::str2float(tokens[2]);
 	  y = Helpers::str2float(tokens[3]);
 	  z = Helpers::str2float(tokens[4]);
-	  model.push_back(new GLRotate(angle, x, y, z));
+	  model.push_back(new GLRotate(angle, x, y, z, shadowTexEnum));
+
 	}
       else if(tokens[0] == "trans")
 	{
@@ -108,7 +138,7 @@ void Scene::parseScene(std::istream& ins)
 	  x = Helpers::str2float(tokens[1]);
 	  y = Helpers::str2float(tokens[2]);
 	  z = Helpers::str2float(tokens[3]);
-	  model.push_back(new GLTranslate(x,y,z));
+	  model.push_back(new GLTranslate(x,y,z, shadowTexEnum));
 	}
       else if(tokens[0] == "scale")
 	{
@@ -123,7 +153,7 @@ void Scene::parseScene(std::istream& ins)
 	  x = Helpers::str2float(tokens[1]);
 	  y = Helpers::str2float(tokens[2]);
 	  z = Helpers::str2float(tokens[3]);
-	  model.push_back(new GLScale(x,y,z));
+	  model.push_back(new GLScale(x,y,z, shadowTexEnum));
 	}
       else if(tokens[0] == "push")
 	{
@@ -134,7 +164,7 @@ void Scene::parseScene(std::istream& ins)
 	      tokens.clear();
 	      continue;
 	    }
-	  model.push_back(new GLPushMatrix);
+	  model.push_back(new GLPushMatrix(shadowTexEnum));
 	}
       else if(tokens[0] == "pop")
 	{
@@ -146,7 +176,7 @@ void Scene::parseScene(std::istream& ins)
 	      tokens.clear();
 	      continue;
 	    }
-	  model.push_back(new GLPopMatrix);
+	  model.push_back(new GLPopMatrix(shadowTexEnum));
 	}
       else if(tokens[0] == "proj")
 	{
@@ -253,6 +283,147 @@ void Scene::parseScene(std::istream& ins)
   //std::cin.get();
 }
 
+
+
+void Scene::directIllumination()
+{
+  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, FBOID);
+  glUseProgram(0);
+  glViewport(0,0,shadowMapSize, shadowMapSize);
+  glClear(GL_DEPTH_BUFFER_BIT);
+  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+  float* lightPos;
+  float lightLookAt[3];
+  lightPos = lights[0]->getPosition();
+  lights[0]->lookAt(lightLookAt);
+
+  std::cerr << "light pos: " << lightPos[0] << ' ' << lightPos[1] <<
+    ' ' << lightPos[2] << std::endl;
+
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  gluPerspective(45, windWidth/windHeight, 1, 10000);//TODO: use spot width
+
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  gluLookAt(lightPos[0], lightPos[1], lightPos[2], lightLookAt[0], 
+	    lightLookAt[1], lightLookAt[2], 0, 1, 0);
+  //TODO: Y is always up
+       
+  glCullFace(GL_FRONT);
+
+  drawObjects();
+  
+  texMatSetup();//load bias and projection/
+
+  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);//render to window
+  glViewport(0,0,windWidth, windHeight);
+
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  glUseProgram(shadowProgram);
+  glUniform1i(shadowTexUniform, 7);
+  glActiveTexture(shadowTexEnum);
+  glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
+  
+  float eye[3];
+  float eyedir[3];
+  
+  view->getEye(eye);
+  view->getCenter(eyedir);
+
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  gluPerspective(45, windWidth/windHeight, 1, 10000);
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  gluLookAt(eye[0], eye[1], eye[2], eyedir[0], eyedir[1], eyedir[2], 
+	    0, 1, 0);
+
+  glCullFace(GL_BACK);
+  drawObjects();
+
+  glutSwapBuffers();
+
+  glIsShader(999);//debug
+}
+
+void Scene::texMatSetup()
+{
+  float modelView[16];
+  float proj[16];
+  const GLfloat biasMat[] = {.5, 0, 0, 0,
+			   0,.5,0,0,
+			   0,0,.5,0,
+			   .5,.5,.5,1};
+
+  glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
+  glGetFloatv(GL_PROJECTION_MATRIX, proj);
+
+  glMatrixMode(GL_TEXTURE);
+  glActiveTexture(shadowTexEnum);
+  glLoadIdentity();
+  glLoadMatrixf(biasMat);
+  glMultMatrixf(proj);
+  glMultMatrixf(modelView);
+  glMatrixMode(GL_MODELVIEW);
+
+
+}
+
+
+GLuint Scene::loadShader(char* filename, GLenum type)
+{
+  GLuint handle = glCreateShader(type);
+  std::ifstream infile;
+  infile.open(filename);
+  std::ostringstream strmobj;
+  strmobj << infile.rdbuf();
+  std::string filestr1 = strmobj.str();
+  const char* filestr = filestr1.c_str();
+  glShaderSource(handle, 1, &filestr, NULL);
+  
+  glCompileShader(handle);
+
+  GLint result;
+  glGetShaderiv(handle, GL_COMPILE_STATUS, &result);
+  if(! result)
+    {
+      GLint logLength;
+      std::cerr << "compile failed of : " << filename << std::endl;
+      glGetShaderiv(handle, GL_INFO_LOG_LENGTH, &logLength);
+      char * log = new char[logLength];
+      GLint actualLength;
+      glGetShaderInfoLog(handle, logLength, &actualLength, log);
+      std::cerr << "Error: " << log << std::endl;
+
+      GLint shaderLen;
+      glGetShaderiv(handle, GL_SHADER_SOURCE_LENGTH, &shaderLen);
+      std::cerr << "Shader length: " << shaderLen << std::endl;
+
+      delete [] log;
+    }
+  return handle;
+  
+}
+
+void Scene::loadShadowShader()
+{
+  GLuint vShaderHandle, fShaderHandle;
+  vShaderHandle = loadShader("shadowVertexShader.c", GL_VERTEX_SHADER);
+  fShaderHandle = loadShader("shadowFragmentShader.c", GL_FRAGMENT_SHADER);
+
+  shadowProgram = glCreateProgram();
+  glAttachShader(shadowProgram, vShaderHandle);
+  glAttachShader(shadowProgram, fShaderHandle);
+  glLinkProgram(shadowProgram);
+
+  shadowTexUniform = glGetUniformLocation(shadowProgram, "ShadowMap");
+
+}
+/* failed shadowing with no shaders
 void Scene::directIllumination()
 {
   //std::cout << "cleared" << std::endl;
@@ -328,17 +499,13 @@ void Scene::directIllumination()
 	}
       glPopMatrix();
       glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
 
 
       glCopyTexImage2D(GL_TEXTURE_2D, 0,GL_DEPTH_COMPONENT,0,0, 
 			  shadowMapSize, shadowMapSize,0);
 
-      glViewport(0, 0, windWidth, windHeight);
+v      glViewport(0, 0, windWidth, windHeight);
 
       glCullFace(GL_BACK);
       glShadeModel(GL_SMOOTH);
@@ -441,12 +608,13 @@ void Scene::directIllumination()
 
   //glMatrixMode(GL_PROJECTION);
   //glLoadIdentity();
-  /*  for(std::vector<GLCommand*>::iterator i = projection.begin();
+  BEGIN COMMENT
+  for(std::vector<GLCommand*>::iterator i = projection.begin();
       i != projection.end(); ++i)
     {
       (*i)->execute();
     }
-  */
+  END COMMENT
   //std::cout << "Projection finished" << std::endl;
   //std::cin.get();
 
@@ -464,6 +632,17 @@ void Scene::directIllumination()
   glFlush();
   glutSwapBuffers();
   glIsShader(999);
+}*/
+
+
+void Scene::drawObjects()
+{
+
+  for(std::vector<GLCommand*>::iterator i = model.begin();
+      i != model.end(); ++i)
+    (*i)->execute();
+
+
 }
 
 void Scene::noShadows()
@@ -480,9 +659,7 @@ void Scene::noShadows()
   for(std::vector<Light*>::iterator l = lights.begin();
       l != lights.end(); ++l)
     (*l)->execute();
-  for(std::vector<GLCommand*>::iterator i = model.begin();
-      i != model.end(); ++i)
-    (*i)->execute();
+  drawObjects();
 
   glFlush();
   glutSwapBuffers();

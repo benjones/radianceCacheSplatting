@@ -111,60 +111,91 @@ class GLUPerspective : public GLCommand
 class GLRotate: public GLCommand
 {
  public:
-  GLRotate(GLfloat _angle, GLfloat _x, GLfloat _y, GLfloat _z)
-    :angle(_angle), x(_x), y(_y), z(_z)
+ GLRotate(GLfloat _angle, GLfloat _x, GLfloat _y, GLfloat _z, GLenum _t)
+   :angle(_angle), x(_x), y(_y), z(_z), texUnit(_t)
     {}
   virtual void execute()
   {
     glRotatef(angle, x, y, z);
+    glMatrixMode(GL_TEXTURE);
+    glActiveTexture(texUnit);
+    glRotatef(angle, x, y, z);
+    glMatrixMode(GL_MODELVIEW);
   }
  private:
   GLfloat angle, x, y, z;
+  GLenum texUnit;
 };
 
 class GLTranslate: public GLCommand
 {
  public:
- GLTranslate(GLfloat _x, GLfloat _y, GLfloat _z)
-   :x(_x), y(_y), z(_z)
+ GLTranslate(GLfloat _x, GLfloat _y, GLfloat _z, GLenum _t)
+   :x(_x), y(_y), z(_z), t(_t)
   {}
   virtual void execute()
   {
     glTranslatef(x,y,z);
+    glMatrixMode(GL_TEXTURE);
+    glActiveTexture(t);
+    glTranslatef(x,y,z);
+    glMatrixMode(GL_MODELVIEW);
   }
  private:
   GLfloat x,y,z;
+  GLenum t;
 };
 
 class GLScale : public GLCommand
 {
  public:
-  GLScale(GLfloat _x, GLfloat _y, GLfloat _z)
-    :x(_x), y(_y), z(_z)
+ GLScale(GLfloat _x, GLfloat _y, GLfloat _z, GLenum _t)
+   :x(_x), y(_y), z(_z), t(_t)
   {}
   virtual void execute()
   {
     glScalef(x,y,z);
+    glMatrixMode(GL_TEXTURE);
+    glActiveTexture(t);
+    glScalef(x,y,z);
+    glMatrixMode(GL_MODELVIEW);
   }
  private:
   GLfloat x,y,z;
+  GLenum t;
 };
 
 class GLPushMatrix : public GLCommand
 {
  public:
+  GLPushMatrix(GLenum _t)
+    :t(_t) {}
   virtual void execute()
   {
     glPushMatrix();
+    glMatrixMode(GL_TEXTURE);
+    glActiveTexture(t);
+    glPushMatrix();
+    glMatrixMode(GL_MODELVIEW);
   }
+ private:
+  GLenum t;
 };
 class GLPopMatrix : public GLCommand
 {
  public:
+  GLPopMatrix(GLenum _t)
+    :t(_t) {}
   virtual void execute()
   {
     glPopMatrix();
+    glMatrixMode(GL_TEXTURE);
+    glActiveTexture(t);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
   }
+ private:
+  GLenum t;
 };
 
 #endif 
