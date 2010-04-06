@@ -8,6 +8,7 @@
 #include "Helpers.h"
 #include <GL/glut.h>
 #include "Light.h"
+#include "GLCommand.h"
 
 const GLenum Scene::lightEnums[8] = {GL_LIGHT0, GL_LIGHT1, GL_LIGHT2, 
 				     GL_LIGHT3, GL_LIGHT4, GL_LIGHT5, 
@@ -27,6 +28,8 @@ Scene::Scene(std::istream& ins)
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE);
   
   glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, shadowMapSize, 
 	       shadowMapSize, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL);
@@ -299,22 +302,16 @@ void Scene::directIllumination()
   lights[0]->lookAt(lightLookAt);
 
   std::cerr << "light pos: " << lightPos[0] << ' ' << lightPos[1] <<
-    ' ' << lightPos[2] << std::endl;
+    ' ' << lightPos[2] << std::endl << "Look at" << lightLookAt[0] << lightLookAt[1] << lightLookAt[2] << std::endl;
 
-  glMatrixMode(GL_PROJECTION);
-  glLoadIdentity();
-  gluPerspective(45, windWidth/windHeight, 1, 10000);//TODO: use spot width
+  
+  viewProjSetup(lightPos, lightLookAt);
 
-  glMatrixMode(GL_MODELVIEW);
-  glLoadIdentity();
-  gluLookAt(lightPos[0], lightPos[1], lightPos[2], lightLookAt[0], 
-	    lightLookAt[1], lightLookAt[2], 0, 1, 0);
-  //TODO: Y is always up
-       
   glCullFace(GL_FRONT);
-
   drawObjects();
   
+  viewProjSetup(lightPos, lightLookAt);
+
   texMatSetup();//load bias and projection/
 
   glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);//render to window
@@ -334,30 +331,37 @@ void Scene::directIllumination()
   view->getEye(eye);
   view->getCenter(eyedir);
 
+  viewProjSetup(eye, eyedir);
+
+  glCullFace(GL_BACK);
+  drawObjects();
+  glutSwapBuffers();
+
+  Helpers::getGLErrors();
+
+  glIsShader(999);//debug
+}
+
+void Scene::viewProjSetup(float *eye, float*eyedir )
+{
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  gluPerspective(45, windWidth/windHeight, 1, 10000);
+  gluPerspective(45, windWidth/windHeight, 10, 100);
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
   gluLookAt(eye[0], eye[1], eye[2], eyedir[0], eyedir[1], eyedir[2], 
 	    0, 1, 0);
 
-  glCullFace(GL_BACK);
-  drawObjects();
-
-  glutSwapBuffers();
-
-  glIsShader(999);//debug
 }
 
 void Scene::texMatSetup()
 {
   float modelView[16];
   float proj[16];
-  const GLfloat biasMat[] = {.5, 0, 0, 0,
-			   0,.5,0,0,
-			   0,0,.5,0,
-			   .5,.5,.5,1};
+  const GLfloat biasMat[16] = {0.5, 0.0, 0.0, 0.0,
+			       0.0, 0.5, 0.0, 0.0,
+			       0.0, 0.0, 0.5, 0.0,
+			       0.5, 0.5, 0.5, 1.0};
 
   glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
   glGetFloatv(GL_PROJECTION_MATRIX, proj);
@@ -374,11 +378,11 @@ void Scene::texMatSetup()
 }
 
 
-GLuint Scene::loadShader(char* filename, GLenum type)
+GLuint Scene::loadShader(std::string filename, GLenum type)
 {
   GLuint handle = glCreateShader(type);
   std::ifstream infile;
-  infile.open(filename);
+  infile.open(filename.c_str());
   std::ostringstream strmobj;
   strmobj << infile.rdbuf();
   std::string filestr1 = strmobj.str();
@@ -421,6 +425,7 @@ void Scene::loadShadowShader()
   glLinkProgram(shadowProgram);
 
   shadowTexUniform = glGetUniformLocation(shadowProgram, "ShadowMap");
+  Helpers::getGLErrors();
 
 }
 /* failed shadowing with no shaders
@@ -637,11 +642,11 @@ v      glViewport(0, 0, windWidth, windHeight);
 
 void Scene::drawObjects()
 {
-
+  //glPushMatrix();
   for(std::vector<GLCommand*>::iterator i = model.begin();
       i != model.end(); ++i)
     (*i)->execute();
-
+  //glPopMatrix();
 
 }
 
@@ -660,7 +665,16 @@ void Scene::noShadows()
       l != lights.end(); ++l)
     (*l)->execute();
   drawObjects();
-
+  
+  float* pos = lights[0]->getPosition();
+  float rgba[4] = {1,1,1,1};
+  glPointSize(10);
+  glMaterialfv(GL_FRONT, GL_DIFFUSE, rgba);
+  glBegin(GL_POINTS);
+  glVertex3f(-5, 5, 5);
+  glEnd();
   glFlush();
   glutSwapBuffers();
+
+
 }

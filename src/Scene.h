@@ -31,7 +31,8 @@ class Scene
   void parseScene(std::istream& ins);
   void drawObjects();
   void texMatSetup();
-  GLuint loadShader(char* filename, GLenum type);
+  void viewProjSetup(float *eye, float*eyedir);
+  GLuint loadShader(std::string filename, GLenum type);
   void loadShadowShader();
   std::vector<GLCommand*> model;
   GLUPerspective* projection;//store the commands

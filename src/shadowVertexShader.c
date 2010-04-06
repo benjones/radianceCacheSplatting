@@ -4,7 +4,8 @@ void main()
 {
 
   ShadowCoord = gl_TextureMatrix[7] * gl_Vertex;
-  //TODO: use actual coordinate
+  //ShadowCoord = TexCoord/TexCoord.w;
+ //TODO: use actual coordinate
   gl_Position = ftransform();
 
   //TODO DO REAL LIGHTING

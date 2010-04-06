@@ -1,5 +1,8 @@
 #include "Helpers.h"
 #include <sstream>
+#include <iostream>
+#include <GL/glew.h>
+
 //from http://oopweb.com/CPP/Documents/CPPHOWTO/Volume/C++Programming-HOWTO-7.html
 void Helpers::tokenize(const std::string& str,
 		       std::vector<std::string>& tokens,
@@ -47,4 +50,19 @@ int Helpers::str2int(const std::string& str)
   int i;
   stream >> i;
   return i;
+}
+
+
+//handle errors:
+
+void Helpers::getGLErrors()
+{
+  GLenum errCode;
+  const GLubyte *errStr;
+  while((errCode = glGetError()) != GL_NO_ERROR)
+    {
+      errStr = gluErrorString(errCode);
+      std::cout << "GLERROR: " << errStr << std::endl;
+    }
+
 }

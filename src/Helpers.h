@@ -14,5 +14,7 @@ class Helpers
   static size_t countChars(const std::string& str, char c);
   static float str2float(const std::string& str);
   static int str2int(const std::string& str);
+
+  static void getGLErrors();
 };
 #endif //_HELPERS_H

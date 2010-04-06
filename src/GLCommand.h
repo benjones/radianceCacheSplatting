@@ -12,6 +12,7 @@
 //way to store matrix push, pop, translate, rotate and scale commands
 //from scene file
 
+
 class GLCommand
 {
  public:
@@ -197,5 +198,6 @@ class GLPopMatrix : public GLCommand
  private:
   GLenum t;
 };
+
 
 #endif 

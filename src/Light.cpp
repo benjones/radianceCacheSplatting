@@ -116,6 +116,9 @@ void Light::parseLight(std::istream& ins)
 	  spotDirection[0] = Helpers::str2float(tokens[1]);
 	  spotDirection[1] = Helpers::str2float(tokens[2]);
 	  spotDirection[2] = Helpers::str2float(tokens[3]);
+	  
+	  std::cerr << "Read in light look at: " << spotDirection[0] << ' ' << spotDirection[1] << ' ' << spotDirection[2] << std::endl;
+
 	}
       else if(tokens[0] == "spotExponent")
 	{
