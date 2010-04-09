@@ -55,8 +55,12 @@ int Helpers::str2int(const std::string& str)
 
 //handle errors:
 
-void Helpers::getGLErrors()
+void Helpers::getGLErrors(std::string where)
 {
+  if (where.size())
+    {
+      std::cout << "Checking GLERRORS at " << where << std::endl;
+    }
   GLenum errCode;
   const GLubyte *errStr;
   while((errCode = glGetError()) != GL_NO_ERROR)

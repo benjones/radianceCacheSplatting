@@ -9,9 +9,12 @@
 #include <string>
 #include "SceneObject.h"
 #include "Light.h"
+
 //way to store matrix push, pop, translate, rotate and scale commands
 //from scene file
 
+
+class Scene;
 
 class GLCommand
 {
@@ -112,91 +115,108 @@ class GLUPerspective : public GLCommand
 class GLRotate: public GLCommand
 {
  public:
- GLRotate(GLfloat _angle, GLfloat _x, GLfloat _y, GLfloat _z, GLenum _t)
-   :angle(_angle), x(_x), y(_y), z(_z), texUnit(_t)
+ GLRotate(GLfloat _angle, GLfloat _x, GLfloat _y, GLfloat _z, Scene* _s)
+   :angle(_angle), x(_x), y(_y), z(_z), s(_s)
     {}
   virtual void execute()
   {
     glRotatef(angle, x, y, z);
-    glMatrixMode(GL_TEXTURE);
-    glActiveTexture(texUnit);
-    glRotatef(angle, x, y, z);
+    for(unsigned light = 0; light < s->numLights; ++light)
+      {
+	glMatrixMode(GL_TEXTURE);
+	glActiveTexture(Scene::texUnitEnums[light]);
+	glRotatef(angle, x, y, z);
+      }
     glMatrixMode(GL_MODELVIEW);
   }
  private:
   GLfloat angle, x, y, z;
-  GLenum texUnit;
+  Scene* s;
 };
 
 class GLTranslate: public GLCommand
 {
  public:
- GLTranslate(GLfloat _x, GLfloat _y, GLfloat _z, GLenum _t)
-   :x(_x), y(_y), z(_z), t(_t)
+ GLTranslate(GLfloat _x, GLfloat _y, GLfloat _z, Scene *_s)
+   :x(_x), y(_y), z(_z), s(_s)
   {}
   virtual void execute()
   {
     glTranslatef(x,y,z);
-    glMatrixMode(GL_TEXTURE);
-    glActiveTexture(t);
-    glTranslatef(x,y,z);
-    glMatrixMode(GL_MODELVIEW);
+    for(unsigned light = 0; light < s->numLights; ++light)
+      {
+	glMatrixMode(GL_TEXTURE);
+	glActiveTexture(Scene::texUnitEnums[light]);
+	glTranslatef(x,y,z);
+      }
+	glMatrixMode(GL_MODELVIEW);
   }
  private:
   GLfloat x,y,z;
-  GLenum t;
+  Scene* s;
 };
 
 class GLScale : public GLCommand
 {
  public:
- GLScale(GLfloat _x, GLfloat _y, GLfloat _z, GLenum _t)
-   :x(_x), y(_y), z(_z), t(_t)
+ GLScale(GLfloat _x, GLfloat _y, GLfloat _z, Scene* _s)
+   :x(_x), y(_y), z(_z), s(_s)
   {}
   virtual void execute()
   {
     glScalef(x,y,z);
-    glMatrixMode(GL_TEXTURE);
-    glActiveTexture(t);
-    glScalef(x,y,z);
+    for(unsigned light = 0; light < s->numLights; ++light)
+      {
+	glMatrixMode(GL_TEXTURE);
+	glActiveTexture(Scene::texUnitEnums[light]);
+	glScalef(x,y,z);
+      }
     glMatrixMode(GL_MODELVIEW);
   }
  private:
   GLfloat x,y,z;
-  GLenum t;
+  Scene* s;
 };
 
 class GLPushMatrix : public GLCommand
 {
  public:
-  GLPushMatrix(GLenum _t)
-    :t(_t) {}
+  GLPushMatrix(Scene* _s)
+    :s(_s) {}
   virtual void execute()
   {
     glPushMatrix();
-    glMatrixMode(GL_TEXTURE);
-    glActiveTexture(t);
-    glPushMatrix();
+    
+    
+    for(unsigned light = 0; light < s->numLights; ++light)
+      {
+	glActiveTexture(Scene::texUnitEnums[light]);
+	glMatrixMode(GL_TEXTURE);
+	glPushMatrix();
+      }
     glMatrixMode(GL_MODELVIEW);
   }
  private:
-  GLenum t;
+  Scene* s;
 };
 class GLPopMatrix : public GLCommand
 {
  public:
-  GLPopMatrix(GLenum _t)
-    :t(_t) {}
+  GLPopMatrix(Scene* _s)
+    :s(_s) {}
   virtual void execute()
   {
     glPopMatrix();
-    glMatrixMode(GL_TEXTURE);
-    glActiveTexture(t);
-    glPopMatrix();
+    for(unsigned light = 0; light < s->numLights; ++light)
+      {
+	glActiveTexture(Scene::texUnitEnums[light]);
+	glMatrixMode(GL_TEXTURE);
+	glPopMatrix();
+      }
     glMatrixMode(GL_MODELVIEW);
   }
  private:
-  GLenum t;
+  Scene* s;
 };
 
 

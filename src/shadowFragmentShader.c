@@ -2,41 +2,33 @@
 #pragma debug(on)
 #pragma optimize(off)
 //uniform sampler2DShadow ShadowMap;
-uniform sampler2DShadow ShadowMap;
-varying vec4 ShadowCoord;
-vec3 shadowCoord;
+uniform sampler2DArrayShadow ShadowMap;
+uniform int numLights;
+varying vec4 ShadowCoord[8];
+
+vec3 shadowCoord[8];
 float eps = .0005;
 
-float lookup(float x, float y)
+float lookup(float x, float y, int i)
 {
-  float depth = texture(ShadowMap, shadowCoord + vec3(x,y,0.0)*eps);
-  return depth  != 1.0 ? 0.5 : 1.0;
+  float depth = texture(ShadowMap, 
+			vec4(shadowCoord[i].x, shadowCoord[i].y,
+			     i, shadowCoord[i].z) 
+			+ vec4(x,y,0,0.0)*eps);
+
+  return depth  != 1.0 ? 0.05 : .5;
   }
 
 void main()
 {
-
-  //vec4 shadowCoordinateWdivide = ShadowCoord / ShadowCoord.w;
-  /*  ShadowCoord.z += .0005;
-
-  float distToLight = texture2D(ShadowMap, ShadowCoord.st).z;
-
-  float shadow = 1.0;
-  if(ShadowCoord.w > 0.0)
+  //varying vec4 ShadowCoord[numLights];
+  //vec3 shadowCoord[numLights];
+  for(int i = 0; i < numLights; ++i)
     {
-      shadow = distToLight < ShadowCoord.z ? .5 : 1.0;
-    }
-  */
-  /*
-  float shadeFactor = lookup(0.0, 0.0);
- gl_FragColor = shadeFactor*gl_Color;
-  */
-  shadowCoord = vec3(ShadowCoord/ShadowCoord.w);
-  shadowCoord.z += .005;
-  //gl_FragColor = vec4(shadowCoord.z);
-  gl_FragColor = vec4(lookup(0.0,0.0)*gl_Color.rgb, gl_Color.a);
+      shadowCoord[i] = vec3(ShadowCoord[i]/ShadowCoord[i].w);
+      shadowCoord[i].z += .005;
+      //gl_FragColor = vec4(shadowCoord.z);
+      gl_FragColor += vec4(lookup(0.0,0.0, i)*gl_Color.rgb, gl_Color.a);
   
-  //gl_FragColor = vec4(gl_Color.rgb*lookup(0.0,0.0), gl_Color.a);//*gl_Color;
-  //gl_FragColor = texture2D(ShadowMap, ShadowCoord.st);
-  //gl_FragColor = ShadowCoord.z;
+    }
 }

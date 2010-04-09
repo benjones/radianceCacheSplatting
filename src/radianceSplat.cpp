@@ -40,6 +40,10 @@ int main(int argc, char** argv)
       
     }
 
+  GLint texUnits;
+  glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &texUnits);
+  std::cout << texUnits << " texture units" << std::endl;
+  //return 0;
 
   glClearColor(.2, .5,0.0, 0);
   glEnable(GL_DEPTH_TEST);

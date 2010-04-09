@@ -9,16 +9,21 @@
 
 
 
-#include "GLCommand.h"
+
 #include <vector>
 #include <istream>
 #include <string>
 #include <map>
 #include "SceneObject.h"
 #include <GL/glew.h>
+#include "Light.h"
 
 extern unsigned windWidth;
 extern unsigned windHeight;
+
+class GLCommand;
+class GLUPerspective;
+class GLULookAt;
 
 class Scene
 {
@@ -30,7 +35,7 @@ class Scene
  private:
   void parseScene(std::istream& ins);
   void drawObjects();
-  void texMatSetup();
+  void texMatSetup(unsigned lightNum);
   void viewProjSetup(float *eye, float*eyedir);
   GLuint loadShader(std::string filename, GLenum type);
   void loadShadowShader();
@@ -43,9 +48,20 @@ class Scene
 
   size_t numLights;
   static const GLenum lightEnums[8]; 
-
-  GLuint shadowMapTexture, FBOID, shadowProgram, shadowTexUniform;
+  static const GLenum texUnitEnums[8];
   unsigned shadowMapSize;
-  const GLenum shadowTexEnum;
+  GLuint shadowMapTexture, FBOID, shadowProgram, shadowTexUniform,
+    uniformTexUnitBase, uniformNumLights, texUnitBase;
+  
+
+  friend class GLPopMatrix;
+  friend class GLPushMatrix;
+  friend class GLScale;
+  friend class GLTranslate;
+  friend class GLRotate;
+
 };
+
+#include "GLCommand.h"
+
 #endif //_SCENE_H

@@ -14,41 +14,81 @@ const GLenum Scene::lightEnums[8] = {GL_LIGHT0, GL_LIGHT1, GL_LIGHT2,
 				     GL_LIGHT3, GL_LIGHT4, GL_LIGHT5, 
 				     GL_LIGHT6, GL_LIGHT7};
 
+const GLenum Scene::texUnitEnums[8] = {GL_TEXTURE0, GL_TEXTURE1, GL_TEXTURE2,
+				       GL_TEXTURE3, GL_TEXTURE4, 
+				       GL_TEXTURE5, GL_TEXTURE6,
+				       GL_TEXTURE7};
+
+
+/*const GLenum Scene::texUnitEnums[8] = {GL_TEXTURE7, GL_TEXTURE8, GL_TEXTURE9,
+				       GL_TEXTURE10, GL_TEXTURE11, 
+				       GL_TEXTURE12, GL_TEXTURE13,
+				       GL_TEXTURE14};*/
+
+
+
 Scene::Scene(std::istream& ins)
   :projection(NULL), view(NULL), numLights(0), shadowMapSize(windWidth*2), 
-   shadowTexEnum(GL_TEXTURE7)
+   texUnitBase(0)
 {
   parseScene(ins);
 
   //create shadow map texture
   glGenTextures(1, &shadowMapTexture);
-  glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
-  
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE);
-  
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, shadowMapSize, 
-	       shadowMapSize, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL);
-  
-  glBindTexture(GL_TEXTURE_2D, 0);
-
   glGenFramebuffersEXT(1, &FBOID);
-  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, FBOID);
 
+
+  glActiveTexture(texUnitEnums[0]);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, shadowMapTexture);
+
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_COMPARE_MODE, 
+		  GL_COMPARE_R_TO_TEXTURE);
+  std::cout << "numlights: " << numLights << std::endl;
+  glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_DEPTH_COMPONENT, shadowMapSize, 
+	       shadowMapSize, numLights, 0, GL_DEPTH_COMPONENT, 
+	       GL_UNSIGNED_BYTE,NULL);
+  
+  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, FBOID);
   glDrawBuffer(GL_NONE);
   glReadBuffer(GL_NONE);
 
-  glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, 
-			    GL_TEXTURE_2D, shadowMapTexture, 0);
+  /*for(unsigned light = 0; light < numLights; ++light)
+    {
+      glActiveTexture(texUnitEnums[light]);
+      glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
+  
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
-  GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
-  if(status != GL_FRAMEBUFFER_COMPLETE_EXT)
-    std::cerr << "Framebuffer complete fail" << std::endl;
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, 
+		      GL_COMPARE_R_TO_TEXTURE);
+  
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, shadowMapSize, 
+		   shadowMapSize, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 
+		   NULL);
+  
+      glBindTexture(GL_TEXTURE_2D, 0);
 
+      glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, FBOIDBase + light);
+
+      glDrawBuffer(GL_NONE);
+      glReadBuffer(GL_NONE);
+
+      glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, 
+				GL_TEXTURE_2D, shadowMapTextureBase + light,
+				0);
+      
+      GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+      if(status != GL_FRAMEBUFFER_COMPLETE_EXT)
+	std::cerr << "Framebuffer complete fail" << std::endl;
+	}*/
   glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);//window buffer
 
   loadShadowShader();
@@ -125,7 +165,7 @@ void Scene::parseScene(std::istream& ins)
 	  x = Helpers::str2float(tokens[2]);
 	  y = Helpers::str2float(tokens[3]);
 	  z = Helpers::str2float(tokens[4]);
-	  model.push_back(new GLRotate(angle, x, y, z, shadowTexEnum));
+	  model.push_back(new GLRotate(angle, x, y, z, this));
 
 	}
       else if(tokens[0] == "trans")
@@ -134,14 +174,14 @@ void Scene::parseScene(std::istream& ins)
 	    {
 	      std::cerr << "Ignoring malformed translate line: " <<
 		curLine << std::endl;
-		tokens.clear();
+	      tokens.clear();
 	      continue;
 	    }
 	  float x,y,z;
 	  x = Helpers::str2float(tokens[1]);
 	  y = Helpers::str2float(tokens[2]);
 	  z = Helpers::str2float(tokens[3]);
-	  model.push_back(new GLTranslate(x,y,z, shadowTexEnum));
+	  model.push_back(new GLTranslate(x,y,z, this));
 	}
       else if(tokens[0] == "scale")
 	{
@@ -156,7 +196,7 @@ void Scene::parseScene(std::istream& ins)
 	  x = Helpers::str2float(tokens[1]);
 	  y = Helpers::str2float(tokens[2]);
 	  z = Helpers::str2float(tokens[3]);
-	  model.push_back(new GLScale(x,y,z, shadowTexEnum));
+	  model.push_back(new GLScale(x,y,z, this));
 	}
       else if(tokens[0] == "push")
 	{
@@ -167,7 +207,7 @@ void Scene::parseScene(std::istream& ins)
 	      tokens.clear();
 	      continue;
 	    }
-	  model.push_back(new GLPushMatrix(shadowTexEnum));
+	  model.push_back(new GLPushMatrix(this));
 	}
       else if(tokens[0] == "pop")
 	{
@@ -179,7 +219,7 @@ void Scene::parseScene(std::istream& ins)
 	      tokens.clear();
 	      continue;
 	    }
-	  model.push_back(new GLPopMatrix(shadowTexEnum));
+	  model.push_back(new GLPopMatrix(this));
 	}
       else if(tokens[0] == "proj")
 	{
@@ -290,30 +330,53 @@ void Scene::parseScene(std::istream& ins)
 
 void Scene::directIllumination()
 {
-  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, FBOID);
+
   glUseProgram(0);
   glViewport(0,0,shadowMapSize, shadowMapSize);
-  glClear(GL_DEPTH_BUFFER_BIT);
+  
   glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
-  float* lightPos;
-  float lightLookAt[3];
-  lightPos = lights[0]->getPosition();
-  lights[0]->lookAt(lightLookAt);
-
-  std::cerr << "light pos: " << lightPos[0] << ' ' << lightPos[1] <<
-    ' ' << lightPos[2] << std::endl << "Look at" << lightLookAt[0] << lightLookAt[1] << lightLookAt[2] << std::endl;
-
-  
-  viewProjSetup(lightPos, lightLookAt);
-
   glCullFace(GL_FRONT);
-  drawObjects();
+
+  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, FBOID);
+
+  Helpers::getGLErrors("After bindFramebufferEXT");
+
+  for (unsigned light = 0; light < numLights; ++ light)
+    {
+      std::cout << "Light: " << light << std::endl;
+      glFramebufferTextureLayerARB(GL_FRAMEBUFFER_EXT, 
+				   GL_DEPTH_ATTACHMENT_EXT,
+				   shadowMapTexture, 0, light);
+      
+      Helpers::getGLErrors("After textureLayer call");
+
+      glClear(GL_DEPTH_BUFFER_BIT);
+
+      float* lightPos;
+      float lightLookAt[3];
+      lightPos = lights[light]->getPosition();
+      lights[light]->lookAt(lightLookAt);
+
+      std::cerr << "light pos: " << lightPos[0] << ' ' << lightPos[1] <<
+	' ' << lightPos[2] << std::endl << "Look at" << lightLookAt[0] << 
+	lightLookAt[1] << lightLookAt[2] << std::endl;
+
   
-  viewProjSetup(lightPos, lightLookAt);
+      viewProjSetup(lightPos, lightLookAt);
 
-  texMatSetup();//load bias and projection/
+      Helpers::getGLErrors("After first viewProjSetup");
 
+      
+
+      drawObjects();
+  
+      Helpers::getGLErrors("After drawObjects in light pass");
+      viewProjSetup(lightPos, lightLookAt);
+
+      texMatSetup(light);//load bias and projection/
+    }
+
+  Helpers::getGLErrors("After texture renders");
   glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);//render to window
   glViewport(0,0,windWidth, windHeight);
 
@@ -321,10 +384,15 @@ void Scene::directIllumination()
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   glUseProgram(shadowProgram);
-  glUniform1i(shadowTexUniform, 7);
-  glActiveTexture(shadowTexEnum);
-  glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
-  
+  glUniform1i(shadowTexUniform, texUnitBase);
+  glUniform1i(uniformTexUnitBase, texUnitBase);
+  glUniform1i(uniformNumLights, numLights);
+
+  /*for(unsigned light = 0; light < numLights; ++light)
+    {
+      glActiveTexture(texUnitEnums[light]);
+      glBindTexture(GL_TEXTURE_2D, shadowMapTextureBase + light);
+      }*/
   float eye[3];
   float eyedir[3];
   
@@ -337,7 +405,7 @@ void Scene::directIllumination()
   drawObjects();
   glutSwapBuffers();
 
-  Helpers::getGLErrors();
+  Helpers::getGLErrors("End of directIllumination");
 
   glIsShader(999);//debug
 }
@@ -354,7 +422,7 @@ void Scene::viewProjSetup(float *eye, float*eyedir )
 
 }
 
-void Scene::texMatSetup()
+void Scene::texMatSetup(unsigned lightNum)
 {
   float modelView[16];
   float proj[16];
@@ -367,13 +435,12 @@ void Scene::texMatSetup()
   glGetFloatv(GL_PROJECTION_MATRIX, proj);
 
   glMatrixMode(GL_TEXTURE);
-  glActiveTexture(shadowTexEnum);
+  glActiveTexture(texUnitEnums[lightNum]);
   glLoadIdentity();
   glLoadMatrixf(biasMat);
   glMultMatrixf(proj);
   glMultMatrixf(modelView);
   glMatrixMode(GL_MODELVIEW);
-
 
 }
 
@@ -424,8 +491,33 @@ void Scene::loadShadowShader()
   glAttachShader(shadowProgram, fShaderHandle);
   glLinkProgram(shadowProgram);
 
+
+  GLint result;
+  glGetProgramiv(shadowProgram, GL_LINK_STATUS, &result);
+  if(! result)
+    {
+      GLint logLength;
+      std::cerr << "link failed : " << std::endl;
+      glGetProgramiv(shadowProgram, GL_INFO_LOG_LENGTH, &logLength);
+      char * log = new char[logLength];
+      GLint actualLength;
+      glGetProgramInfoLog(shadowProgram, logLength, &actualLength, log);
+      std::cerr << "Error: " << log << std::endl;
+
+      /*GLint shaderLen;
+      glGetProgramiv(handle, GL_SHADER_SOURCE_LENGTH, &shaderLen);
+      std::cerr << "Shader length: " << shaderLen << std::endl;
+      */
+      delete [] log;
+    }
+
+
+
   shadowTexUniform = glGetUniformLocation(shadowProgram, "ShadowMap");
-  Helpers::getGLErrors();
+  uniformTexUnitBase = glGetUniformLocation(shadowProgram, "texUnitBase");
+  uniformNumLights = glGetUniformLocation(shadowProgram, "numLights");
+  
+  Helpers::getGLErrors("end of loadShadowShader");
 
 }
 /* failed shadowing with no shaders
@@ -666,7 +758,7 @@ void Scene::noShadows()
     (*l)->execute();
   drawObjects();
   
-  float* pos = lights[0]->getPosition();
+  //float* pos = lights[0]->getPosition();
   float rgba[4] = {1,1,1,1};
   glPointSize(10);
   glMaterialfv(GL_FRONT, GL_DIFFUSE, rgba);

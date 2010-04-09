@@ -15,6 +15,6 @@ class Helpers
   static float str2float(const std::string& str);
   static int str2int(const std::string& str);
 
-  static void getGLErrors();
+  static void getGLErrors(std::string where="");
 };
 #endif //_HELPERS_H
