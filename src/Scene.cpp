@@ -334,13 +334,15 @@ void Scene::directIllumination()
   glUseProgram(0);
   glViewport(0,0,shadowMapSize, shadowMapSize);
   
+  for(size_t i = 0; i < lights.size(); ++i)
+    lights[i]->execute();
+
   glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
   glCullFace(GL_FRONT);
 
   glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, FBOID);
 
   Helpers::getGLErrors("After bindFramebufferEXT");
-
   for (unsigned light = 0; light < numLights; ++ light)
     {
       std::cout << "Light: " << light << std::endl;

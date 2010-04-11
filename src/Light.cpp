@@ -10,6 +10,7 @@ Light::Light(std::istream& ins, GLenum _lightNum)
    lightNum(_lightNum)
 {
   parseLight(ins);
+
 }
 
 Light::~Light()

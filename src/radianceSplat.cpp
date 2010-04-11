@@ -45,7 +45,7 @@ int main(int argc, char** argv)
   std::cout << texUnits << " texture units" << std::endl;
   //return 0;
 
-  glClearColor(.2, .5,0.0, 0);
+  glClearColor(0.0, 0.0,0.0, 0.0);
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_CULL_FACE);
   glEnable(GL_NORMALIZE);

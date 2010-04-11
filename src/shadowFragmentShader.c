@@ -5,30 +5,40 @@
 uniform sampler2DArrayShadow ShadowMap;
 uniform int numLights;
 varying vec4 ShadowCoord[8];
-
+varying vec4 diffuseComps[4];
 vec3 shadowCoord[8];
 float eps = .0005;
 
-float lookup(float x, float y, int i)
+float lookup(vec2 xy, int i)
 {
   float depth = texture(ShadowMap, 
 			vec4(shadowCoord[i].x, shadowCoord[i].y,
 			     i, shadowCoord[i].z) 
-			+ vec4(x,y,0,0.0)*eps);
+			+ vec4(xy,0.0,0.0)*eps);
 
-  return depth  != 1.0 ? 0.05 : .5;
+  return depth  != 1.0 ? 0.0 : 1.0;
   }
 
 void main()
 {
   //varying vec4 ShadowCoord[numLights];
   //vec3 shadowCoord[numLights];
+  vec2 o = mod(floor(gl_FragCoord.xy), 2.0);
   for(int i = 0; i < numLights; ++i)
     {
       shadowCoord[i] = vec3(ShadowCoord[i]/ShadowCoord[i].w);
-      shadowCoord[i].z += .005;
+      shadowCoord[i].z += .002;
       //gl_FragColor = vec4(shadowCoord.z);
-      gl_FragColor += vec4(lookup(0.0,0.0, i)*gl_Color.rgb, gl_Color.a);
+      
+
+      float sum = 0.0;
+      sum += lookup(vec2(-1.5, 1.5) + o, i);
+      sum += lookup(vec2(0.5, 1.5) + o, i);
+      sum += lookup(vec2(-1.5, -0.5) + o, i);
+      sum += lookup(vec2(0.5, -0.5) + o, i);
+
+      //gl_FragColor += vec4(.25* sum*gl_FrontColor.rgb, glFrontColor.a);
+      gl_FragColor += vec4(.25* sum*diffuseComps[i].rgb, diffuseComps[i].a);
   
     }
 }

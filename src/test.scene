@@ -1,8 +1,8 @@
-cam -3 4 -13 0 0 0 0 1 0
+cam 3 4 -13 0 0 0 0 1 0
 light test.light
 light test2.light
 #light test3.light
-brdf diffuse 1 0 0 1
+brdf diffuse .4 .4 .4 1
 push
 #trans -1 0 0
 obj test.obj
@@ -10,13 +10,13 @@ pop
 
 push
 trans -4 0 0
-brdf diffuse 0 1 0 1
+brdf diffuse 0 .5 .5 1
 scale 2 2 1
 obj test.obj
 pop
 
 #wall
-brdf diffuse 0 1 1 1
+brdf diffuse 1 1 1 1
 obj wall.obj
 #floor
 brdf diffuse 0 0 1 1
