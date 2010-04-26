@@ -9,6 +9,8 @@ varying vec4 diffuseComps[4];
 vec3 shadowCoord[8];
 float eps = .0005;
 
+varying float realDepth;
+
 float lookup(vec2 xy, int i)
 {
   float depth = texture(ShadowMap, 
@@ -27,7 +29,7 @@ void main()
   for(int i = 0; i < numLights; ++i)
     {
       shadowCoord[i] = vec3(ShadowCoord[i]/ShadowCoord[i].w);
-      shadowCoord[i].z += .002;
+      shadowCoord[i].z += .0015;
       //gl_FragColor = vec4(shadowCoord.z);
       
 
@@ -38,7 +40,8 @@ void main()
       sum += lookup(vec2(0.5, -0.5) + o, i);
 
       //gl_FragColor += vec4(.25* sum*gl_FrontColor.rgb, glFrontColor.a);
-      gl_FragColor += vec4(.25* sum*diffuseComps[i].rgb, diffuseComps[i].a);
+      gl_FragColor += vec4(.25* sum*diffuseComps[i].rgb, 0);
   
     }
+  gl_FragColor.a = realDepth;
 }

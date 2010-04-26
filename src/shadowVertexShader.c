@@ -1,6 +1,8 @@
 varying vec4 ShadowCoord[4];
 varying vec4 diffuseComps[4];
 
+varying float realDepth;
+
 uniform int texUnitBase;
 uniform int numLights;
 
@@ -31,13 +33,11 @@ void main()
  
     }  
 
-
-
 //ShadowCoord = TexCoord/TexCoord.w;
  //TODO: use actual coordinate
   gl_Position = ftransform();
 
   //TODO DO REAL LIGHTING
   gl_FrontColor = gl_FrontMaterial.diffuse;
-
+  realDepth = -ecPosition.z;
 }

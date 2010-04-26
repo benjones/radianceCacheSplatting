@@ -14,7 +14,12 @@ void displayWrapper()
 {
   //std::cout << "displayWrapper" << std::endl;
   //std::cin.get();
+  scn->readCoordNormals();
   scn->directIllumination();
+  
+  float point[] = {3, 4, -13};
+  float norml[] = {-3, -4, 13};
+  scn->generateRecord(point, norml);
   //scn->noShadows();
 }
 
@@ -26,7 +31,7 @@ int main(int argc, char** argv)
   glutInit(&argc, argv);
   glutInitWindowSize(windWidth,windHeight);
   glutInitWindowPosition(10,10);
-  glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | 
+  glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | 
 		      GLUT_DEPTH | GLUT_ACCUM);
  
  
@@ -60,6 +65,7 @@ int main(int argc, char** argv)
   std::ifstream ins;
   ins.open(argv[1]);
   scn = new Scene(ins);
+
 
   
   glutMainLoop();

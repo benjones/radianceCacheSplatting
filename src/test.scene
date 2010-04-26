@@ -1,7 +1,7 @@
 cam 3 4 -13 0 0 0 0 1 0
 light test.light
 light test2.light
-#light test3.light
+light test3.light
 brdf diffuse .4 .4 .4 1
 push
 #trans -1 0 0
