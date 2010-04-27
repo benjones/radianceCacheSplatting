@@ -29,7 +29,7 @@ void main()
   for(int i = 0; i < numLights; ++i)
     {
       shadowCoord[i] = vec3(ShadowCoord[i]/ShadowCoord[i].w);
-      shadowCoord[i].z += .0015;
+      shadowCoord[i].z += .00005;
       //gl_FragColor = vec4(shadowCoord.z);
       
 

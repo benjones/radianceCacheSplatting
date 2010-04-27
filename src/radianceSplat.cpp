@@ -14,13 +14,15 @@ void displayWrapper()
 {
   //std::cout << "displayWrapper" << std::endl;
   //std::cin.get();
+  //scn->noShadows();
+  //return;
   scn->readCoordNormals();
   scn->directIllumination();
   
   float point[] = {3, 4, -13};
   float norml[] = {-3, -4, 13};
   scn->generateRecord(point, norml);
-  //scn->noShadows();
+
 }
 
 int main(int argc, char** argv)

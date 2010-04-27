@@ -1,0 +1,60 @@
+cam 0 5 -10 0 5 10 0 1 0
+proj 45 1.0 2 30
+light cb1.light
+light cb2.light
+
+brdf diffuse .9 .9 .9 1
+
+#back wall
+push
+trans 0 0 10
+obj cbWall.obj
+pop
+
+brdf diffuse 1 0 0 1
+#left wall
+push
+trans 5 0 5
+rotate 90 0 1 0
+obj cbWall.obj
+pop
+
+brdf diffuse 0 1 0 1
+#right wall
+push
+trans -5 0 5
+rotate -90 0 1 0
+obj cbWall.obj
+pop
+
+brdf diffuse 1 1 1 1
+#floor
+push
+rotate -90 -1 0 0 
+obj cbWall.obj
+pop
+
+
+#ceiling
+push
+trans 0 10 10
+rotate 90 -1 0 0
+obj cbWall.obj
+pop
+
+
+#box 1
+push
+trans 1 0 6
+rotate 35 0 1 0
+scale 2 4 2
+obj test.obj
+pop
+
+#box2
+push
+trans -4 0 3
+rotate 15 0 1 0
+scale 2.5 2.5 2.5
+obj test.obj
+pop

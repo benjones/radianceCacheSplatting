@@ -9,7 +9,7 @@ obj test.obj
 pop
 
 push
-trans -4 0 0
+trans -4 3 0
 brdf diffuse 0 .5 .5 1
 scale 2 2 1
 obj test.obj

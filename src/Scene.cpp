@@ -401,7 +401,10 @@ void Scene::generateRecord(float *pos, float* normal)
   float yoffset = recordWidth/2.0;
   float f_h; //eqn 2 from LC04
   irradianceRecord rec;
+
+  float hmdsum = 0.0;
   
+  float dist;
   for(size_t y = 0; y < recordHeight; ++y)
     {
         for(size_t x = 0; x < recordWidth; ++x)
@@ -412,9 +415,16 @@ void Scene::generateRecord(float *pos, float* normal)
 	     g += f_h*IMap[(4*(y*recordWidth + x)) + 1];
 	     b += f_h*IMap[(4*(y*recordWidth + x)) + 2];
 
+	     dist = IMap[(4*(y*recordWidth + x)) + 3];
+	     if(fabs(dist) < .0001) {}
+	     else
+	       hmdsum += 1.0/dist;
+
 	  }
     }
+  float hmd = (recordWidth*recordWidth)/hmdsum;
   std::cout << "sum: " << r << ' ' << g << ' ' << b << std::endl;
+  std::cout << "hmd: " << hmd << std::endl;
   rec.pos[0] = pos[0];
   rec.pos[1] = pos[1];
   rec.pos[2] = pos[2];
@@ -432,7 +442,7 @@ void Scene::generateRecord(float *pos, float* normal)
   rec.irradiance[1] = g;
   rec.irradiance[2] = b;
   
-  rec.hmd = 100;
+  rec.hmd = hmd;
 
   records.push_back(rec);
 }
@@ -475,8 +485,10 @@ void Scene::drawAtPoint(float*point, float* direction,
 	' ' << lightPos[2] << std::endl << "Look at" << lightLookAt[0] << 
 	lightLookAt[1] << lightLookAt[2] << std::endl;
 
-  
-      viewProjSetup(lightPos, lightLookAt, up);
+      float cutoff = lights[light]->getCutoff();
+      std::cout << "light cutoff: " << cutoff << std::endl;
+      
+      viewProjSetup(lightPos, lightLookAt, up, cutoff);
 
       Helpers::getGLErrors("After first viewProjSetup");
 
@@ -485,7 +497,7 @@ void Scene::drawAtPoint(float*point, float* direction,
       drawObjects();
   
       Helpers::getGLErrors("After drawObjects in light pass");
-      viewProjSetup(lightPos, lightLookAt, up);
+      viewProjSetup(lightPos, lightLookAt, up, cutoff);
 
       texMatSetup(light);//load bias and projection/
     }
@@ -657,6 +669,8 @@ void Scene::noShadows()
   for(std::vector<Light*>::iterator l = lights.begin();
       l != lights.end(); ++l)
     (*l)->execute();
+  //  glDisable(GL_LIGHTING);
+  //  glColor3f(1, 1, 1);
   drawObjects();
   
   //float* pos = lights[0]->getPosition();
