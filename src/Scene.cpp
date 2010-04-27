@@ -1,5 +1,6 @@
 #include "Scene.h"
 
+#include <cstdlib>
 #include <cmath>
 #include <algorithm>
 #include <iostream>
@@ -34,6 +35,8 @@ Scene::Scene(std::istream& ins)
   :projection(NULL), view(NULL), numLights(0), shadowMapSize(windWidth*2), 
    texUnitBase(0)
 {
+
+  srand(0);//TODO SEED WITH TIME
   parseScene(ins);
 
   //create shadow map texture
@@ -89,7 +92,11 @@ Scene::Scene(std::istream& ins)
 
   loadShadowShader();
 
+  readCoordNormals();
   //  std::cout << "constructor completed" << std::endl;
+
+  warmupCache(20);//generate 20 records
+
 }
 
 Scene::~Scene()
@@ -329,6 +336,44 @@ void Scene::parseScene(std::istream& ins)
 }
 
 
+void Scene::display()
+{
+
+
+}
+
+void Scene::warmupCache(int numRecs)
+{
+  
+  int x, y;
+  
+  float point[3];
+  float normal[3];
+  
+  for(int i = 0; i < numRecs; ++i)
+    {
+      x = rand() % windWidth;
+      y = rand() % windHeight;
+      
+      int offset = (y*windWidth + x)*3;
+      
+      point[0] = objectCoords[offset];
+      point[1] = objectCoords[offset +1];
+      point[2] = objectCoords[offset +2];
+      
+      normal[0] = objectNormals[offset];
+      normal[1] = objectNormals[offset +1];
+      normal[2] = objectNormals[offset +2];
+      
+      std::cout << "generating record at: (" << x << ", " << y <<
+	") with worldCoord: (" << point[0] << ", " << point[1] << 
+	", " << point[2] << ") and normal: (" << normal[0] << ", " <<
+	normal[1] << ", " << normal[2] << ")" << std::endl;
+      
+      
+      generateRecord(point, normal);
+    }
+}
 
 void Scene::directIllumination()
 {
@@ -343,7 +388,7 @@ void Scene::directIllumination()
 
   glutSwapBuffers();
 
-  Helpers::getGLErrors("End of directIllumination");
+  //Helpers::getGLErrors("End of directIllumination");
 
   glIsShader(999);//debug
 }
@@ -464,16 +509,12 @@ void Scene::drawAtPoint(float*point, float* direction,
 
   glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, FBOID);
 
-  Helpers::getGLErrors("After bindFramebufferEXT");
   for (unsigned light = 0; light < numLights; ++ light)
     {
-      std::cout << "Light: " << light << std::endl;
       glFramebufferTextureLayerARB(GL_FRAMEBUFFER_EXT, 
 				   GL_DEPTH_ATTACHMENT_EXT,
 				   shadowMapTexture, 0, light);
       
-      Helpers::getGLErrors("After textureLayer call");
-
       glClear(GL_DEPTH_BUFFER_BIT);
 
       float* lightPos;
@@ -481,28 +522,17 @@ void Scene::drawAtPoint(float*point, float* direction,
       lightPos = lights[light]->getPosition();
       lights[light]->lookAt(lightLookAt);
 
-      std::cerr << "light pos: " << lightPos[0] << ' ' << lightPos[1] <<
-	' ' << lightPos[2] << std::endl << "Look at" << lightLookAt[0] << 
-	lightLookAt[1] << lightLookAt[2] << std::endl;
-
       float cutoff = lights[light]->getCutoff();
-      std::cout << "light cutoff: " << cutoff << std::endl;
       
       viewProjSetup(lightPos, lightLookAt, up, cutoff);
 
-      Helpers::getGLErrors("After first viewProjSetup");
-
-      
-
       drawObjects();
   
-      Helpers::getGLErrors("After drawObjects in light pass");
       viewProjSetup(lightPos, lightLookAt, up, cutoff);
 
       texMatSetup(light);//load bias and projection/
     }
 
-  Helpers::getGLErrors("After texture renders");
   glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo);//render to window
   glViewport(0,0,width, height);
 
@@ -728,17 +758,11 @@ void Scene::readCoordNormals()
 	       0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL);
 
 
-  Helpers::getGLErrors("After texImage calls");
-  
   glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fboid);
-
-  Helpers::getGLErrors("after bindFramebuffer");
   glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
 			 GL_TEXTURE_2D, coordTexBase[0], 0);
-  Helpers::getGLErrors("After first framebufferTex2D");
   glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT1_EXT,
 			 GL_TEXTURE_2D, coordTexBase[1], 0);
-  Helpers::getGLErrors("After 2nd framebufferTex2D");
 
   glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT,
 			    GL_TEXTURE_2D, coordTexBase[2], 0);
@@ -747,7 +771,6 @@ void Scene::readCoordNormals()
   glCullFace(GL_BACK);
   glEnable(GL_DEPTH_TEST);
 
-  Helpers::getGLErrors("After cullFace, before drawBufs");
   glReadBuffer(GL_NONE);
   const GLenum drawbufs[2] = {GL_COLOR_ATTACHMENT0_EXT, 
 			      GL_COLOR_ATTACHMENT1_EXT};
@@ -773,6 +796,7 @@ void Scene::readCoordNormals()
   glBindTexture(GL_TEXTURE_2D, coordTexBase[0]);
   objectCoords = new float[3*windWidth*windHeight];
   objectNormals = new float[3*windWidth*windHeight];
+
   glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, objectCoords);
   
   glBindTexture(GL_TEXTURE_2D, coordTexBase[1]);

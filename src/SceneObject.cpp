@@ -37,7 +37,7 @@ SceneObject::SceneObject(std::istream& ins)
   //set up pointers
   glBindBuffer(GL_ARRAY_BUFFER, VBOID);
   
-  dumpData();
+  //dumpData();
   // std::cout << "pause" << std::endl;
   //std::cin.get();
 }
@@ -53,9 +53,6 @@ SceneObject::~SceneObject()
 
 void SceneObject::drawTriangles()
 {
-  //std::cout << "drawing triangles" << std::endl;
-  //std::cout << "pause" << std::endl;
-  //std::cin.get();
   glBindBuffer(GL_ARRAY_BUFFER, VBOID);
   glVertexPointer(3, GL_FLOAT, sizeof(VertexData), BUFFER_OFFSET(0));
 
@@ -68,9 +65,6 @@ void SceneObject::drawTriangles()
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBOID);
   glDrawElements(GL_TRIANGLES, indeces.size(), GL_UNSIGNED_SHORT, 
 		 BUFFER_OFFSET(0));
-  //std::cout << "drew triangles" << std::endl;
-  //std::cout << "pause" << std::endl;
-  //std::cin.get();
 }
 
 
@@ -107,18 +101,7 @@ void SceneObject::parseOBJ(std::istream& ins)
 	y = Helpers::str2float(tokens[2]);
 	z = Helpers::str2float(tokens[3]);
 	positions.push_back(SceneObject::Vec3D(x,y,z));
-	/*if(vertices.size() <= std::max(nVertices, nNormals -1))
-	  {
-	    vertices.push_back(VertexData(x,y,z,0,0,0,1,0,0));
-	  }
-	else
-	  {
-	    vertices[nVertices].x = x;
-	    vertices[nVertices].y = y;
-	    vertices[nVertices].z = z;
-	    }*/
-	//std::cout << vertices[nVertices].x << vertices[nVertices].y << vertices[nVertices].z << std::endl;
-	//nVertices++;
+	
       }
 
       //texture coordinates
@@ -149,18 +132,6 @@ void SceneObject::parseOBJ(std::istream& ins)
 
 	normals.push_back(SceneObject::Vec3D(nx,ny,nz));
 
-	/*if(vertices.size() <= std::max(nVertices -1, nNormals))
-	  {
-	    std::cout << "pushing normal" << nVertices << nNormals <<  vertices.size() << curLine << std::endl;
-	    vertices.push_back(VertexData(0,0,0,nx,ny,nz,1,0,0));
-	  }
-	else
-	  {
-	    vertices[nNormals].nx = nx;
-	    vertices[nNormals].ny = ny;
-	    vertices[nNormals].nz = nz;
-	  }
-	  nNormals++;*/
       }
       else if(tokens[0] == "f"){
 	//Faces.  TODO: Handle non-triangles (quads/polygons)

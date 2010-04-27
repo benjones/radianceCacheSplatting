@@ -16,11 +16,11 @@ void displayWrapper()
   //std::cin.get();
   //scn->noShadows();
   //return;
-  scn->readCoordNormals();
+
   scn->directIllumination();
   
-  float point[] = {3, 4, -13};
-  float norml[] = {-3, -4, 13};
+  float point[] = {0, 5, -10};
+  float norml[] = {0, 0, 1};
   scn->generateRecord(point, norml);
 
 }

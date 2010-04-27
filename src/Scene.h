@@ -30,6 +30,8 @@ class Scene
  public:
   Scene(std::istream& ins);
   ~Scene();
+  void display();
+
   void directIllumination();
   void noShadows();
 
@@ -39,6 +41,9 @@ class Scene
  private:
   void drawAtPoint(float*point, float* direction, float*up, GLuint fbo, 
 		   int width, int height);
+
+  void warmupCache(int numRecs);
+
   void parseScene(std::istream& ins);
   void drawObjects();
   void texMatSetup(unsigned lightNum);
