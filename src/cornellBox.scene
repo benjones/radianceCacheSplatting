@@ -3,7 +3,7 @@ proj 45 1.0 2 30
 light cb1.light
 light cb2.light
 
-brdf diffuse .9 .9 .9 1
+brdf diffuse 1 1 1 1
 
 #back wall
 push

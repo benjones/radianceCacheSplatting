@@ -21,6 +21,9 @@
 extern unsigned windWidth;
 extern unsigned windHeight;
 
+const float recordFOV = 150.0;
+const float defaultFront = 1.0;
+const float defaultBack = 30.0;
 class GLCommand;
 class GLUPerspective;
 class GLULookAt;
@@ -38,19 +41,25 @@ class Scene
   void readCoordNormals();
   void generateRecord(float* pos, float* normal);
 
+  void splatRecords();
+
  private:
   void drawAtPoint(float*point, float* direction, float*up, GLuint fbo, 
-		   int width, int height);
+		   int width, int height, float fovy = 45.0, 
+		   float front = 1.0, float back = 30.0);
 
   void warmupCache(int numRecs);
 
   void parseScene(std::istream& ins);
   void drawObjects();
   void texMatSetup(unsigned lightNum);
-  void viewProjSetup(float *eye, float*eyedir, float*up, float fovy = 45.0, float aspectRatio = 1.0);
+  void viewProjSetup(float *eye, float*eyedir, float*up, float fovy = 45.0, 
+		     float aspectRatio = 1.0, float front=defaultFront, 
+		     float back= defaultBack);
   GLuint loadShader(std::string filename, GLenum type);
   void loadShadowShader();
   void loadCoordNormalShader();
+  void loadSplatShader();
   std::vector<GLCommand*> model;
   GLUPerspective* projection;//store the commands
   GLULookAt* view;
@@ -64,13 +73,15 @@ class Scene
   unsigned shadowMapSize;
   GLuint shadowMapTexture, FBOID, shadowProgram, coordNormalProgram,
     shadowTexUniform, uniformTexUnitBase, uniformNumLights, texUnitBase,
-    recordFBOID;
+    recordFBOID, splatProgram, splatUniform, splatAttribute, splatHmdUniform,
+    splatWorldPosUniform, splatWorldNormUniform, splatAUniform, 
+    splatWindSizeUniform;
   
   GLuint recordTexBase[2];
   GLuint coordTexBase[3];
 
-  const static size_t recordWidth = 512;
-  const static size_t recordHeight = 512;
+  const static size_t recordWidth = 32;
+  const static size_t recordHeight = 32;
 
   friend class GLPopMatrix;
   friend class GLPushMatrix;
@@ -81,6 +92,7 @@ class Scene
   float* objectCoords;
   float* objectNormals;
 
+  float* IMap;
   struct irradianceRecord {
     float pos[3];
     float norm[3];

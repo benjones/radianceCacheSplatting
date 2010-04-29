@@ -19,9 +19,7 @@ void displayWrapper()
 
   scn->directIllumination();
   
-  float point[] = {0, 5, -10};
-  float norml[] = {0, 0, 1};
-  scn->generateRecord(point, norml);
+  scn->splatRecords();
 
 }
 

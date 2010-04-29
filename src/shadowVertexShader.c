@@ -29,8 +29,17 @@ void main()
       //diffuseComps[i] = gl_FrontMaterial.diffuse;
       diffuseComps[i] = diffuse*gl_LightSource[i].diffuse * 
       	gl_FrontMaterial.diffuse;
-
- 
+      
+      //diffuseComps[i] = vec4(normal, 1.0);
+      /*
+      if(dot(normal, VP) < 0.0)
+	{
+	  diffuseComps[i] = vec4(0.0, 0.0, 1.0, 1.0);
+	}
+      else
+	{
+	  diffuseComps[i] = vec4(0.0, 1.0, 0.0, 1.0);
+	  }*/
     }  
 
 //ShadowCoord = TexCoord/TexCoord.w;

@@ -14,6 +14,12 @@
 
 const float closePlane = 2.0;
 
+const float recordFront = .1;
+const float recordBack = 30;
+
+const float a = .25;
+
+
 const GLenum Scene::lightEnums[8] = {GL_LIGHT0, GL_LIGHT1, GL_LIGHT2, 
 				     GL_LIGHT3, GL_LIGHT4, GL_LIGHT5, 
 				     GL_LIGHT6, GL_LIGHT7};
@@ -91,11 +97,12 @@ Scene::Scene(std::istream& ins)
   glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);//window buffer
 
   loadShadowShader();
-
+  loadSplatShader();
   readCoordNormals();
   //  std::cout << "constructor completed" << std::endl;
 
-  warmupCache(20);//generate 20 records
+  IMap = new float[4*recordWidth*recordHeight];
+  warmupCache(100);//generate 20 records
 
 }
 
@@ -122,6 +129,7 @@ Scene::~Scene()
 
   delete [] objectCoords;
   delete [] objectNormals;
+  delete [] IMap;
   sceneObjects.clear();
 }
 
@@ -342,6 +350,84 @@ void Scene::display()
 
 }
 
+void Scene::splatRecords()
+{
+  /*irradianceRecord rec1, rec2, rec3;
+  rec1.pos[0] = 2.1766;
+  rec1.pos[1] = 1.8176;
+  rec1.pos[2] = 5.1762;
+  rec1.norm[0] = -.573576;
+  rec1.norm[1] = 0;
+  rec1.norm[2] = -.819152;
+  rec1.irradiance[0] = 1;
+  rec1.irradiance[1] = 0;
+  rec1.irradiance[2] = 0;
+  rec1.hmd = 1.0;
+
+  records.clear();
+  records.push_back(rec1);
+  */
+  float eye[3];
+  float eyedir[3];
+  float up[3] = {0.0, 1.0, 0.0};
+  view->getEye(eye);
+  view->getCenter(eyedir);
+  glUseProgram(splatProgram);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glDisable(GL_LIGHTING);
+  glDisable(GL_DEPTH_TEST);
+  viewProjSetup(eye, eyedir, up, 45.0, 1.0, defaultFront, defaultBack);
+
+  float color[4] = {1, 0, 1, 1};
+  glPointSize(5);
+  glColor4fv(color);
+
+  //set up samplers
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, coordTexBase[0]);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, coordTexBase[1]);
+
+  float ws[2] = {windWidth, windHeight};
+  std::cout << splatWindSizeUniform << std::endl;
+  glUniform2fv(splatWindSizeUniform, 1, ws);
+
+  glUniform1f(splatAUniform, a);
+  std::cout << "texture sampler numbers: " << coordTexBase[0] << coordTexBase[1] << coordTexBase[2] << std::endl;
+  glUniform1i(splatWorldPosUniform, 0);
+  glUniform1i(splatWorldNormUniform, 1);
+
+
+  for(size_t i = 0; i < records.size(); ++i)
+    {
+      std::cout << "splatting record: " << i << std::endl;
+      glUniform1f(splatUniform,records[i].hmd*a);
+      glUniform1f(splatHmdUniform, records[i].hmd);
+      glBegin(GL_QUADS);
+      for(int j = 0; j < 4; ++j)
+	{
+	  glVertexAttrib1f(splatAttribute, 3 - j);
+	  glNormal3fv(records[i].norm);
+	  glVertex3fv(records[i].pos);
+	}
+      glEnd();
+    }
+  /*glUseProgram(0);
+
+  glColor4f(1,0,0,1);
+  glBegin(GL_POINTS);
+  glVertex3fv(rec1.pos);
+  glEnd();*/
+  
+
+  glFlush();
+  glutSwapBuffers();
+
+  Helpers::getGLErrors("end of splat");
+  glIsShader(999);
+}
+
+
 void Scene::warmupCache(int numRecs)
 {
   
@@ -386,11 +472,19 @@ void Scene::directIllumination()
 
   drawAtPoint(eye, eyedir, up, 0, windWidth, windHeight);
 
-  glutSwapBuffers();
+  //glutSwapBuffers();
 
+  glIsShader(999);
+  //std::cin.get();
+  //glClear(GL_COLOR_BUFFER_BIT);
+  //glFlush();
+  //  glutSwapBuffers();
+  //std::cin.get();
   //Helpers::getGLErrors("End of directIllumination");
-
+  drawAtPoint(eye, eyedir, up, 0, windWidth, windHeight);
+  glutSwapBuffers();
   glIsShader(999);//debug
+
 }
 
 void Scene::generateRecord(float *pos, float* normal)
@@ -418,27 +512,28 @@ void Scene::generateRecord(float *pos, float* normal)
 
   //bind my fbo
   glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, recordFBOID);
+  glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
   
   glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
 			    GL_TEXTURE_2D, recordTexBase[0], 0);
   glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT,
 			    GL_TEXTURE_2D, recordTexBase[1], 0);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
-  drawAtPoint(pos, lookat, up, recordFBOID, recordWidth, recordHeight);
-
-  glIsShader(999);
+  drawAtPoint(pos, lookat, up, recordFBOID, recordWidth, recordHeight,
+  recordFOV, recordFront, recordBack);
 
 
   glBindTexture(GL_TEXTURE_2D, recordTexBase[0]);
-  float * IMap = new float[4*recordWidth*recordHeight];
+
   glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, IMap);
 
   float r = 0.0;
   float g = 0.0;
   float b = 0.0;
 
-  //WARNING TODO FIXME 45.0 ISNT ALWAYS THE ANGLE!!!!
-  float planeDim = 2*closePlane/cos(45.0*M_PI/360.0);//width/height of
+
+  float planeDim = 2*closePlane/cos(recordFOV*M_PI/360.0);//width/height of
 						     //the plane
 
   float dA = planeDim*planeDim/(recordWidth*recordHeight);
@@ -467,6 +562,8 @@ void Scene::generateRecord(float *pos, float* normal)
 
 	  }
     }
+  if (hmdsum < .0001)
+    return;
   float hmd = (recordWidth*recordWidth)/hmdsum;
   std::cout << "sum: " << r << ' ' << g << ' ' << b << std::endl;
   std::cout << "hmd: " << hmd << std::endl;
@@ -490,13 +587,19 @@ void Scene::generateRecord(float *pos, float* normal)
   rec.hmd = hmd;
 
   records.push_back(rec);
+
+  glIsShader(999);
 }
 
 
 void Scene::drawAtPoint(float*point, float* direction,
-			    float*up, GLuint fbo, int width, int height)
+			float*up, GLuint fbo, int width, int height,
+			float fovy, float front, float back)
 {
 
+
+
+  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, FBOID);
 
   glUseProgram(0);
   glViewport(0,0,shadowMapSize, shadowMapSize);
@@ -507,7 +610,6 @@ void Scene::drawAtPoint(float*point, float* direction,
   glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
   glCullFace(GL_FRONT);
 
-  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, FBOID);
 
   for (unsigned light = 0; light < numLights; ++ light)
     {
@@ -544,12 +646,7 @@ void Scene::drawAtPoint(float*point, float* direction,
   glUniform1i(uniformTexUnitBase, texUnitBase);
   glUniform1i(uniformNumLights, numLights);
 
-  /*for(unsigned light = 0; light < numLights; ++light)
-    {
-      glActiveTexture(texUnitEnums[light]);
-      glBindTexture(GL_TEXTURE_2D, shadowMapTextureBase + light);
-      }*/
-  viewProjSetup(point, direction, up);
+  viewProjSetup(point, direction, up, fovy, 1.0, front, back);
 
   glCullFace(GL_BACK);
   drawObjects();
@@ -562,11 +659,11 @@ void Scene::drawAtPoint(float*point, float* direction,
 
 
 void Scene::viewProjSetup(float *eye, float*eyedir, float* up, float fovy,
-			  float aspectRatio)
+			  float aspectRatio, float front, float back)
 {
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  gluPerspective(fovy, aspectRatio, closePlane, 30);
+  gluPerspective(fovy, aspectRatio, front, back);
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
   gluLookAt(eye[0], eye[1], eye[2], eyedir[0], eyedir[1], eyedir[2], 
@@ -673,6 +770,54 @@ void Scene::loadShadowShader()
 
 }
 
+
+void Scene::loadSplatShader()
+{
+  GLuint vShaderHandle, fShaderHandle;
+  vShaderHandle = loadShader("splatVertexShader.c", GL_VERTEX_SHADER);
+  fShaderHandle = loadShader("splatFragmentShader.c", GL_FRAGMENT_SHADER);
+
+  splatProgram = glCreateProgram();
+  glAttachShader(splatProgram, vShaderHandle);
+  glAttachShader(splatProgram, fShaderHandle);
+  
+  glLinkProgram(splatProgram);
+
+
+  GLint result;
+  glGetProgramiv(splatProgram, GL_LINK_STATUS, &result);
+  if(! result)
+    {
+      GLint logLength;
+      std::cerr << "splat link failed : " << std::endl;
+      glGetProgramiv(splatProgram, GL_INFO_LOG_LENGTH, &logLength);
+      char * log = new char[logLength];
+      GLint actualLength;
+      glGetProgramInfoLog(splatProgram, logLength, &actualLength, log);
+      std::cerr << "Error: " << log << std::endl;
+
+      /*GLint shaderLen;
+      glGetProgramiv(handle, GL_SHADER_SOURCE_LENGTH, &shaderLen);
+      std::cerr << "Shader length: " << shaderLen << std::endl;
+      */
+      delete [] log;
+    }
+
+
+
+  splatUniform = glGetUniformLocation(splatProgram, "radius");
+  splatHmdUniform = glGetUniformLocation(splatProgram, "hmd");
+  splatWorldPosUniform = glGetUniformLocation(splatProgram, "worldPoss");
+  splatWorldNormUniform = glGetUniformLocation(splatProgram, "worldNorms");
+  splatAttribute = glGetAttribLocation(splatProgram, "inCorner");
+  splatAUniform = glGetUniformLocation(splatProgram, "a");
+
+  splatWindSizeUniform = glGetUniformLocation(splatProgram,
+						     "windSize");
+  
+  Helpers::getGLErrors("end of loadSplatShader");
+
+}
 
 
 void Scene::drawObjects()
@@ -782,8 +927,17 @@ void Scene::readCoordNormals()
   float up[3] = {0, 1, 0};
   view->getEye(eye);
   view->getCenter(eyedir);
-  viewProjSetup(eye, eyedir, up);
+  //viewProjSetup(eye, eyedir, up);
   
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  //WARNING FIXME TODO MAKE SURE THIS IS THE SAME ANGLE AS THE SCENE FOVY
+  gluPerspective(45.0, 1.0, closePlane, 30);
+  gluLookAt(eye[0], eye[1], eye[2], eyedir[0], eyedir[1], eyedir[2],
+	    up[0], up[1], up[2]);
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+
   glUseProgram(coordNormalProgram);
 
   drawObjects();
