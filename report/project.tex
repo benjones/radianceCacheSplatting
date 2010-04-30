@@ -59,9 +59,8 @@ The University of British Columbia}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{abstract}
-  This document describes the procedure for projects in CPSC 514. The
-  document also serves as an example for simple \LaTeX\ documents.
-\end{abstract}
+  Global illumination in diffuse scenes can be approximated using the GPU friendly irradiance cache splatting technique\cite{mainpaper}.  Visible points in the scene are sampled, recording their distance to objects and incoming irradiance.  The contribution from all samples is accumulated in a buffer containing the estimated first-bounce approximate indirect illumination.  This result can be combined with a direct illumination rendering to produce a final result.   I implemented part of this algorithm for diffuse scenes.  Both the indirect and direct contributions were visually plausible, but my naive approach for combining them produced in an unconvincing final result.  
+  \end{abstract}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -78,7 +77,7 @@ Fast, realistic rendering of complex scenes is one of the major goals of compute
 
 The key observations this algorithm exploits are first: in typical scenes, most lighting in the scene comes from the direct component, and the first bounce of light off of other surfaces.  Second, the indirect light contribution tends to change slowly across surfaces.  
 
-The algorithm adapts a technique from \cite{ward1988ray} which samples the indirect lighting at points interpolates between them to generate an approximation of total indirect contribution.  This result is combined with the direct illumination component to create the final image.  In the original algorithm, the interpolation is performed via nearest-neighbor queries, which is not an acceptable approach when using a GPU.  In the improved algorithm from \cite{mainpaper}, both the sampling and interpolation leverage the GPU's parallel processing ability.  The sampled values are computed by rendering the environment from points in the scene and performing a weighted summation of the pixel values.  The interpolation is performed by treating each sample as a sphere with radius proportional to its estimated error and "splatting" all the spheres onto a buffer.  The samples can be processed separately and no information about neighbors is required.
+The algorithm adapts a technique from \cite{ward1988ray} which samples the indirect lighting at points interpolates between them to generate an approximation of total indirect contribution.  This result is combined with the direct illumination component to create the final image.  In the original algorithm, the interpolation is performed via nearest-neighbor queries, which is not an acceptable approach when using a GPU.  In the improved algorithm from \cite{mainpaper}, both the sampling and interpolation leverage the GPU's parallel processing ability.  The sampled values are computed by rendering the environment from points in the scene and performing a weighted summation of the pixel values.  The interpolation is performed by treating each sample as a sphere with radius proportional to its estimated error and "splatting" all the spheres onto a buffer.  The samples can be processed separately and no information about neighbors is required, so this can be done efficiently on a GPU.
 
 The rest of the paper describes the algorithm in more detail, my implementation, and my results.
 
@@ -106,13 +105,13 @@ Another aggregate quantity, the harmonic mean distance to objects, is computed a
 Ideally, the entire hemisphere around the record point would be sampled, but sampling a plane is much easier and faster to do using the GPU's rasterization engine.  In order to minimize error, a very wide field of view angle, and very short front clipping plane distance are used.    
 
 \subsection{Record Splatting}
-Each sample as computed in step 1 is projected onto the image plane as a sphere, representing which visible pixels have similar indirect contribution.  The spheres have radius = $aR_k$ where $a$ is a tunable parameter, and $R_k$ is the harmonic mean distance to objects visible at sample $k$.
+Each sample as computed in step 1 is projected onto the image plane as a sphere, representing which visible pixels have similar indirect contribution.  The spheres have radius = $aR_k$ where $a$ is a tunable parameter, and $R_k$ is the harmonic mean distance to objects visible at sample $k$.  The sphere is rendered by drawing a quad that bounds the sphere in screen space.
 
-For each pixel in the buffer in the bounding box of the sphere associated with record $k$, a weight, $w$ is computed as
+For each pixel in the bounding box of the sphere associated with record $k$, a weight, $w$ is computed as
 $$
 w_k = \frac{1}{\frac{p - p_k}{R_k} + \sqrt{1 - n \cdot n_k}}
 $$
-where p is the position of the point, $p_k$ is the position of the associated sample, $n$ and $n_k$ are the normals of the point and associated sample, respectively.  The weight is computed that nearby points with similar normals are given high weight, since they are more likely to have similar indirect contributions.
+where p is the position of the point, $p_k$ is the position of the associated sample, $n$ and $n_k$ are the normals of the point and associated sample, respectively.  The weight is computed that nearby points with similar normals are have a greater effect, since they are more likely to have similar indirect contributions.
 
 For each pixel in the bounding box, if this value is greater than the $1/a$ tolerance, the associated irradiance is added to the buffer: 
 \begin{eqnarray*}
@@ -131,12 +130,13 @@ The direction illumination component is computed by rendering the scene from the
 In my implementation, the direct and indirect contributions were combined with a simple weighted sum.  This turned out not to be an adequate approach, and the weighting results in a tradeoff between the subtle details of color bleeding and washing out the shading of the rest of the scene.
 
 \section{Implementation}
-My implementation was written in c++ using OpenGL and GLSL to control GPU execution.  It makes heavy use of Frame Buffer Objects (FBO) for rendering to textures.  In most cases these textures can remain on the GPU, so there is little overhead in reading from them at a future step.  Floating point textures are used to store values like positions (or depth) so that their values are not clamped onto the range [0, 1].
+My implementation was written in C++ using OpenGL and GLSL to control GPU execution.  It makes heavy use of Frame Buffer Objects (FBO) for rendering to textures.  In most cases these textures can remain on the GPU, so there is little overhead in reading from them at a future step.  Floating point textures are used to store values like positions (or depth) so that their values are not clamped onto the range [0, 1].
 
-%\subsection{Scene Input}
+\subsection{Scene Input}
+Scenes are input using a simple text based format which maps almost directly into OpenGL commands like translate(), pushMatrix(), or setting material properties.  Objects in the scene are described using a simplified OBJ format.  Camera and light parameters are also included as part of the scene description.
 
 \subsection{Retrieving Visible Object and Normal Data}
-For the CPU based steps, and for passing data to the GPU, a record of the visible points in the scene along with their normal vectors and material properties must be stored on the CPU.  This is accomplished by rendering the scene to a floating point texture which is read back to the CPU.  
+For the CPU based steps, and for passing data to the GPU, a record of the visible points in the scene along with their normal vectors and material properties must be stored on the CPU.  This is accomplished by rendering the scene to several floating point textures, using a fragment shader to output the desired data.  The textures are then read back to the CPU.  
 
 \subsection{Shadow Mapped Rendering}
 Both the direct illumination step, and record computations steps rely on generating an accurately shadowed view of the scene.  My implementation uses the shadow mapping algorithm described in \cite{orangebook}.  The scene is first rendered with front face culling from the viewpoint of each light in the scene.  Each one of these views is stored in layer of a depth texture array.  The scene is then rendered from the viewpoint with backface culling.  A vertex shader computes the coordinates of each vertex in the eye-coordinates for each light.  Finally a fragment compares the distance from each fragment to the light source to the associated depth texture, lighting points that have smaller depth than the texture.  
@@ -149,25 +149,25 @@ When a new record is requested, the scene is rendered, shadow mapped, from that 
 \cite{mainpaper} and \cite{larsen2004simulating} note that this summation can be performed using mipmap generation on the GPU, but \cite{mainpaper} claimed the CPU based approach performed better.
 
 \subsection{Splatting}
-The splatting process must be performed on both the GPU and CPU during different parts of the algorithm.  The CPU implementation is necessary so that when a new sample is computed in an under sampled section of the image, the sample can impact its neighboring values.  If just the GPU implementation was used, after each new record was created and splatted, the splat buffer would have to be read back to the CPU again before the traversal could proceed.  Therefore, the CPU based implementation prevents significant time from being used transferring the buffer back and forth between the GPU and CPU.
+The splatting process must be performed on both the GPU and CPU during different parts of the algorithm.  The CPU implementation is necessary so that when a new sample is computed in an under sampled section of the image, its neighboring values can be updated before their weights are tested.  If just the GPU implementation was used, after each new record was created and splatted, the splat buffer would have to be read back to the CPU again before the traversal could proceed.  Therefore, the CPU based implementation prevents significant time from being used transferring the buffer back and forth between the GPU and CPU.
 
 \subsubsection{GPU Implementation}
-In the GPU implementation, the spheres are rendered as quads that bound the actual spheres.  The coordinates of the vertices of the quad are computed using a vertex shader.  The center of the sphere is passed in as all 4 vertices of the quad, and the fragment shader computes the vertical and horizontal vectors that are normal to the eye vector, in eye-space, as shown in fig \ref{boundingBox}.  This results in a slight overestimation of the sphere, but inclusion can be checked exactly in the fragment shader, resulting in only a small amount of wasted computation.  
+In the GPU implementation, the spheres are rendered as quads that bound the actual spheres.  The coordinates of the vertices of the quad are computed using a vertex shader.  The center of the sphere is passed in as all four vertices of the quad, with an attribute indicating which corner each vertex represents.  The vertex shader computes the vertical and horizontal vectors that are normal to the eye vector, in eye-space, as shown in fig \ref{boundingBox}.  This results in a slight overestimation of the sphere, but inclusion can be checked exactly in the fragment shader, resulting in only a small amount of wasted computation and discarded fragments.  
 
 \begin{figure}[htbp]
 \begin{center}
-\includegraphics[scale = .5]{splatEye.pdf}
+\includegraphics[scale = .35]{splatEye.pdf}
 \caption{Computation of sphere bounding box in vertex shader}
 \label{boundingBox}
 \end{center}
 \end{figure}
 
-The splatting process is performed with blending enabled, so that all contributions are summed together.  The contributions are computed in the fragment shader as described in section 2.2.  The $p$, $n$ and $\rho_d$ values are retrieved via texture lookup on the textures created in section 3.1 
+The splatting process is performed with blending enabled, so that all contributions are summed together.  The contributions are computed in the fragment shader as described in section 2.2.  The $p$, $n$ and $\rho_d$ values are retrieved via texture lookup on the textures created in section 3.2 
 
 \subsubsection{CPU Implementation}
 The same algorithm from the previous section is performed on the CPU.  Since the rasterization engine is not available, the bounding box is computed by finding the range of x and y pixel values that are projected onto image plane.  Since color information is not needed in this step, only weight information is recorded to the CPU copy of the buffer.
 
-After all the new records have been created, they are given to the GPU and splatted using the GPU implementation.
+After all the new records have been created, they are sent to the GPU and splatted using the GPU implementation.
 
 \subsection{Combining Direct and Indirect Results}
 The results are combined with a fragment shader.  A full-screen quad is rendered with the direct and indirect contributions retrieved by texture lookup.  The colors of the indirect buffer are normalized by dividing the r,g,b values by the associated $w$ value.
@@ -183,7 +183,7 @@ All images were rendered at 800x800 resolution on a quad-core workstation with G
 \end{center}
 \end{figure}
 
-The indirect lighting is computed in 3 steps.  First, the 1000 samples at random points in the scene are generated and splatted, shown in fig \ref{splat1000}.  Then, the CPU traversal produces more samples, which are then splatted (fig\ref{splatAll}) and normalized (fig\ref{splatNorm}).
+The indirect lighting is computed in 3 steps.  First, 1000 samples at random points in the scene are generated and splatted, shown in fig \ref{splat1000}.  Then, the CPU traversal produces more samples, which are then splatted (fig\ref{splatAll}) and normalized (fig\ref{splatNorm}).
 
 \begin{figure}[htbp]
 \begin{center}
@@ -219,7 +219,7 @@ Finally the direct and indirect contributions are combined to generate the final
 \end{center}
 \end{figure}
 
-Generating the first 1000 samples took 1.11 seconds.  The direct illumination rendering took 0.00195 seconds.  511 new records were generated.  It took .0195 seconds to splat the original records, 1.04 seconds to perform the CPU traversal, and .00107 seconds to splat the 511 newly created records.  The final pass combining the two images took .00203 seconds.  Record generation and traversing the splat buffer in the CPU took, by far, the most time.  If the viewpoint were moved after a sufficient number of samples had been generated, subsequent frames would likely be very fast to generate, but I didn't have time to test this.
+Generating the first 1000 samples took 1.11 seconds.  The direct illumination rendering took 0.00195 seconds.  511 new records were generated.  It took .0195 seconds to splat the original records, 1.04 seconds to perform the CPU traversal (including new record generation), and .00107 seconds to splat the 511 newly created records.  The final pass combining the two images took .00203 seconds.  Record generation and traversing the splat buffer in the CPU took, by far, the most time.  If the viewpoint were moved after a sufficient number of samples had been generated, subsequent frames would likely be very fast to generate, but I didn't have time to test this.
 
 The results show that color bleeding is correctly accounted for, especially in the shadowed regions of the boxes and the floor near the red and green walls.  The final image, however is flawed.  There are several reasons for this.  The biggest problem is that the naive blending of the direct and indirect images saturates parts of the image, like the walls, while under-representing the color bleeding in the floors and shadowed regions.  A better blending scheme would result in a much better image.
 
@@ -228,6 +228,8 @@ Second, the indirect lighting has lots of visual artifacts, especially perfectly
 \section{Conclusion}
 I implemented part of the irradiance cache splatting algorithm described in \cite{mainpaper} for diffuse surfaces.  While the indirect contribution on its own was visually plausible, the combination with direct lighting was not successful, resulting in a low quality final output.  The system does not run at true interactive rates, but is still reasonably fast, at least on simple scenes.  With an improved blending algorithm and using the sample gradient information, the system I developed could be used to generate fast, high quality renderings of diffuse scenes.
 
+\section*{Acknowledgments}
+I'm am extremely grateful to the developers of the BuGLe OpenGL debugging tool (specifically gldb-gui debugger) and glslDevil shader debugging tool.
 
 \bibliographystyle{acmsiggraph}
 {\small\bibliography{project.bib}}

@@ -1,1 +1,18 @@
-First Commit
+
+Ben Jones
+CPSC 514
+Rendering
+Spring 2010
+
+
+Instructions:
+Requires opengl with FBO extension and floating point texture extensions and GLSL support
+Also requires glew and glut libraries.
+
+cd src; make
+
+To execute, ./radianceSplat <myScene>.scene #the cornell box example is included
+
+
+
+
