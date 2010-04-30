@@ -17,6 +17,7 @@
 #include "SceneObject.h"
 #include <GL/glew.h>
 #include "Light.h"
+#include "stopwatch.h"
 
 extern unsigned windWidth;
 extern unsigned windHeight;
@@ -68,6 +69,8 @@ class Scene
 //to run
   std::vector<Light*> lights;
   std::map<std::string, SceneObject*> sceneObjects;
+
+  HStopWatch timer;
 
   size_t numLights;
   static const GLenum lightEnums[8]; 

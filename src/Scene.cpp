@@ -152,8 +152,11 @@ Scene::Scene(std::istream& ins)
 
   IMap = new float[4*recordWidth*recordHeight];
   splatBuffer = new float[4*windWidth*windHeight];
-  warmupCache(1000);//generate starting records
 
+  timer.start();
+  std::cout << "before warmup" <<timer.split() << std::endl;
+  warmupCache(1000);//generate starting records
+  std::cout << "after warmup" << timer.split() << std::endl;
 }
 
 Scene::~Scene()
@@ -400,7 +403,9 @@ void Scene::parseScene(std::istream& ins)
 void Scene::display()
 {
 
+  std::cout << "before direct illumination" << timer.split() << std::endl;
   directIllumination();
+  std::cout << "after direct illumination" << timer.split() << std::endl;
   /*
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_LIGHTING);
@@ -408,6 +413,7 @@ void Scene::display()
   glBlendFunc(GL_ONE, GL_CONSTANT_ALPHA);*/
   splatRecords();
 
+  std::cout << "after splatRecords" << timer.split() << std::endl;
 
   glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
   glViewport(0, 0, windWidth, windHeight);
@@ -456,7 +462,7 @@ void Scene::display()
 
   glFlush();
 
-
+  std::cout << "after combination" << timer.split() << std::endl;
   glutSwapBuffers();
 
 
@@ -543,7 +549,7 @@ void Scene::splatRecords()
   Helpers::getGLErrors("end of splat");
   glIsShader(999);
   glIsTexture(222);
-
+  std::cout << "after first records splatted " << timer.split() << std::endl;
   //now do another frag shader pass
   
   //now read the buffer back and to the CPU traversal
@@ -663,6 +669,7 @@ void Scene::splatRecords()
 	    }
 	}
     }
+  std::cout << "cpu traversal" << timer.split() << std::endl;
 
   std::cout << "about to splat new records" << std::endl;
   glUseProgram(splatProgram);
