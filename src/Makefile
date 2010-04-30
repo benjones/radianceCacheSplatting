@@ -26,7 +26,7 @@ TARGET  = radianceSplat
 
 # All headers in the project. Add your new header files here.
 # Note that template .cpp files that are #include'd somewhere should go here
-HEADERS = SceneObject.h Helpers.h GLCommand.h Scene.h Light.h
+HEADERS = SceneObject.h Helpers.h GLCommand.h Scene.h Light.h Matrix.h
 
 # All source files in the project. Add your new source files here.
 SOURCES = radianceSplat.cpp SceneObject.cpp Helpers.cpp Scene.cpp Light.cpp

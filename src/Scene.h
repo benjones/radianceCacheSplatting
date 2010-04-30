@@ -60,6 +60,8 @@ class Scene
   void loadShadowShader();
   void loadCoordNormalShader();
   void loadSplatShader();
+  void loadFinalShader();
+  
   std::vector<GLCommand*> model;
   GLUPerspective* projection;//store the commands
   GLULookAt* view;
@@ -75,13 +77,18 @@ class Scene
     shadowTexUniform, uniformTexUnitBase, uniformNumLights, texUnitBase,
     recordFBOID, splatProgram, splatUniform, splatAttribute, splatHmdUniform,
     splatWorldPosUniform, splatWorldNormUniform, splatAUniform, 
-    splatWindSizeUniform;
+    splatWindSizeUniform, splatBufFBOID, finalProgram, splatDiffuseUniform,
+    finalDirect, finalSplat, finalWindSize;
   
-  GLuint recordTexBase[2];
-  GLuint coordTexBase[3];
+  GLuint directFBOID;
+  GLuint splatTex;
 
-  const static size_t recordWidth = 32;
-  const static size_t recordHeight = 32;
+  GLuint directTex[2];
+  GLuint recordTexBase[2];
+  GLuint coordTexBase[4];
+
+  const static size_t recordWidth = 64;
+  const static size_t recordHeight = 64;
 
   friend class GLPopMatrix;
   friend class GLPushMatrix;
@@ -91,6 +98,7 @@ class Scene
   
   float* objectCoords;
   float* objectNormals;
+  float* splatBuffer;
 
   float* IMap;
   struct irradianceRecord {

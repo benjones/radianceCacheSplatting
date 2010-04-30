@@ -13,6 +13,10 @@ varying float realDepth;
 
 float lookup(vec2 xy, int i)
 {
+  /*  if (shadowCoord[i].x < 0.0 || shadowCoord[i].x > 1.0 || 
+      shadowCoord[i].y < 0.0 || shadowCoord[i].y > 1.0)
+      return 0.0;*/
+
   float depth = texture(ShadowMap, 
 			vec4(shadowCoord[i].x, shadowCoord[i].y,
 			     i, shadowCoord[i].z) 

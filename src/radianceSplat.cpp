@@ -17,10 +17,10 @@ void displayWrapper()
   //scn->noShadows();
   //return;
 
-  scn->directIllumination();
+  //scn->directIllumination();
   
-  scn->splatRecords();
-
+  //scn->splatRecords();
+  scn->display();
 }
 
 int main(int argc, char** argv)

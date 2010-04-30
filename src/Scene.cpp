@@ -12,12 +12,14 @@
 #include "Light.h"
 #include "GLCommand.h"
 
+#include "Matrix.h"
+
 const float closePlane = 2.0;
 
 const float recordFront = .1;
 const float recordBack = 30;
 
-const float a = .25;
+const float a = 1.0;
 
 
 const GLenum Scene::lightEnums[8] = {GL_LIGHT0, GL_LIGHT1, GL_LIGHT2, 
@@ -52,6 +54,40 @@ Scene::Scene(std::istream& ins)
   glGenFramebuffersEXT(1, &recordFBOID);
   glGenTextures(2, recordTexBase);
 
+  glGenFramebuffersEXT(1, &directFBOID);
+  glGenTextures(2, directTex);
+
+  glBindTexture(GL_TEXTURE_2D, directTex[0]);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, windWidth, windHeight,
+	       0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+  glBindTexture(GL_TEXTURE_2D, directTex[1]);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, windWidth, windHeight,
+	       0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL);
+
+  
+  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, directFBOID);
+  glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
+			    GL_TEXTURE_2D, directTex[0], 0);
+  glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT,
+			    GL_TEXTURE_2D, directTex[1], 0);
+
+
+  glGenFramebuffersEXT(1, &splatBufFBOID);
+  glGenTextures(1, &splatTex);
+
   glActiveTexture(texUnitEnums[0]);
   glBindTexture(GL_TEXTURE_2D_ARRAY, shadowMapTexture);
 
@@ -72,6 +108,18 @@ Scene::Scene(std::istream& ins)
   glReadBuffer(GL_NONE);
 
   
+  //set up splat buffer
+  glBindTexture(GL_TEXTURE_2D, splatTex);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, windWidth, windHeight,
+	       0, GL_RGBA, GL_FLOAT, NULL);
+  //it doesn't need a depth attachment
+
+
 
   //set up "color" attachment, alpha channel with be depth
   glBindTexture(GL_TEXTURE_2D, recordTexBase[0]);
@@ -98,11 +146,13 @@ Scene::Scene(std::istream& ins)
 
   loadShadowShader();
   loadSplatShader();
+  loadFinalShader();
   readCoordNormals();
   //  std::cout << "constructor completed" << std::endl;
 
   IMap = new float[4*recordWidth*recordHeight];
-  warmupCache(100);//generate 20 records
+  splatBuffer = new float[4*windWidth*windHeight];
+  warmupCache(1000);//generate starting records
 
 }
 
@@ -110,9 +160,11 @@ Scene::~Scene()
 {
   glDeleteTextures(1, &shadowMapTexture);
   glDeleteFramebuffersEXT(1, &FBOID);
-  glDeleteTextures(3, coordTexBase);
+  glDeleteTextures(4, coordTexBase);
   glDeleteFramebuffersEXT(1, &recordFBOID);
   glDeleteTextures(2, recordTexBase);
+  glDeleteFramebuffersEXT(1, &directFBOID);
+  glDeleteTextures(2, directTex);
   for(std::vector<GLCommand*>::iterator i = model.begin();
       i != model.end(); ++i)
     delete (*i);
@@ -129,6 +181,7 @@ Scene::~Scene()
 
   delete [] objectCoords;
   delete [] objectNormals;
+  delete [] splatBuffer;
   delete [] IMap;
   sceneObjects.clear();
 }
@@ -347,6 +400,65 @@ void Scene::parseScene(std::istream& ins)
 void Scene::display()
 {
 
+  directIllumination();
+  /*
+  glEnable(GL_DEPTH_TEST);
+  glEnable(GL_LIGHTING);
+  glBlendColor(.75, .75, .75, .75);
+  glBlendFunc(GL_ONE, GL_CONSTANT_ALPHA);*/
+  splatRecords();
+
+
+  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+  glViewport(0, 0, windWidth, windHeight);
+  float ws[2] = {windWidth, windHeight};
+  glUseProgram(finalProgram);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, splatTex);
+  glUniform1i(finalSplat, 0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, directTex[0]);
+  glUniform1i(finalDirect, 1);
+
+  glUniform2fv(finalWindSize, 1, ws);
+
+  glDisable(GL_BLEND);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  
+  glActiveTexture(GL_TEXTURE0);
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glMatrixMode(GL_TEXTURE);
+  glLoadIdentity();
+  
+  glDisable(GL_CULL_FACE);
+  glBegin(GL_QUADS);
+  glTexCoord2f(0.0,0.0);
+  glVertex2f(-1.0, -1.0);
+  glTexCoord2f(1.0, 0.0);
+  glVertex2f(1.0, -1.0);
+
+  glTexCoord2f(1.0, 1.0);
+  glVertex2f(1.0, 1.0);
+  glTexCoord2f(0.0, 1.0);
+  glVertex2f(-1.0, 1.0);
+
+  glEnd();
+
+  /* glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, 0);
+  glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, 0);//splatBufFBOID);
+  
+  glBlitFramebufferEXT(0,0, windWidth, windHeight,
+		       0,0, windWidth, windHeight,
+		       GL_COLOR_BUFFER_BIT, GL_NEAREST);*/
+
+  glFlush();
+
+
+  glutSwapBuffers();
+
 
 }
 
@@ -372,8 +484,18 @@ void Scene::splatRecords()
   float up[3] = {0.0, 1.0, 0.0};
   view->getEye(eye);
   view->getCenter(eyedir);
+
+  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, splatBufFBOID);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+  glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
+  glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
+			    GL_TEXTURE_2D, splatTex, 0);
+  glViewport(0, 0, windWidth, windHeight);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_ONE, GL_ONE);//add all the contributions together
+  
   glUseProgram(splatProgram);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT);
   glDisable(GL_LIGHTING);
   glDisable(GL_DEPTH_TEST);
   viewProjSetup(eye, eyedir, up, 45.0, 1.0, defaultFront, defaultBack);
@@ -387,20 +509,21 @@ void Scene::splatRecords()
   glBindTexture(GL_TEXTURE_2D, coordTexBase[0]);
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, coordTexBase[1]);
-
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, coordTexBase[2]);
+  
   float ws[2] = {windWidth, windHeight};
   std::cout << splatWindSizeUniform << std::endl;
   glUniform2fv(splatWindSizeUniform, 1, ws);
 
   glUniform1f(splatAUniform, a);
-  std::cout << "texture sampler numbers: " << coordTexBase[0] << coordTexBase[1] << coordTexBase[2] << std::endl;
+
   glUniform1i(splatWorldPosUniform, 0);
   glUniform1i(splatWorldNormUniform, 1);
-
+  glUniform1i(splatDiffuseUniform, 2);
 
   for(size_t i = 0; i < records.size(); ++i)
     {
-      std::cout << "splatting record: " << i << std::endl;
       glUniform1f(splatUniform,records[i].hmd*a);
       glUniform1f(splatHmdUniform, records[i].hmd);
       glBegin(GL_QUADS);
@@ -408,23 +531,161 @@ void Scene::splatRecords()
 	{
 	  glVertexAttrib1f(splatAttribute, 3 - j);
 	  glNormal3fv(records[i].norm);
+	  glColor3fv(records[i].irradiance);
 	  glVertex3fv(records[i].pos);
 	}
       glEnd();
     }
-  /*glUseProgram(0);
-
-  glColor4f(1,0,0,1);
-  glBegin(GL_POINTS);
-  glVertex3fv(rec1.pos);
-  glEnd();*/
-  
 
   glFlush();
-  glutSwapBuffers();
-
+  //glutSwapBuffers();
+  std::cout << records.size() << "records splatted" << std::endl;
   Helpers::getGLErrors("end of splat");
   glIsShader(999);
+  glIsTexture(222);
+
+  //now do another frag shader pass
+  
+  //now read the buffer back and to the CPU traversal
+  
+  glBindTexture(GL_TEXTURE_2D, splatTex);
+  glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, splatBuffer);
+
+  int startNewRecords = records.size();
+  float * newpos;
+  float * newnorm;
+
+  double modelviewmat[16];
+  double projectionmat[16];
+  glGetDoublev(GL_MODELVIEW_MATRIX, modelviewmat);
+  matrix4x4 modmat(modelviewmat);
+  glGetDoublev(GL_PROJECTION_MATRIX, projectionmat);
+  matrix4x4 projmat(projectionmat);
+
+  double identity[16] = { 1, 0, 0, 0,
+			  0, 1, 0, 0,
+			  0, 0, 1, 0,
+			  0, 0, 0, 1};
+
+  vector3d xyz, norm, eyeCoord, perpLeft, perpDown;
+  float upv[3] = {0, 1, 0}, right[3] = {1, 0, 0};
+  vector3d upvec(upv);
+  vector3d rightvec(right);
+
+  vector3d botleft, topright;
+  vector3d projbotLeft, projtopRight;
+
+  float hmd;
+
+  double x1, y1, z1, x2, y2, z2;//for gluproject
+
+  GLint vp[4] = {0, 0, windWidth, windHeight};
+
+  int xmin, xmax, ymin, ymax;
+
+  for(size_t y = 0; y < windHeight; ++y)
+    {
+      for(size_t x = 0; x < windWidth; ++x)
+	{
+	  if(splatBuffer[(y*windWidth +x)*4 + 3] < a)
+	    {
+	      newpos = &objectCoords[(y*windWidth +x)*3];
+	      newnorm = &objectNormals[(y*windWidth +x)*3];
+	      generateRecord(newpos, newnorm);
+
+	      hmd = records.back().hmd;
+
+	      //do a simple cpusplat to update nearby weights
+	      //mimic the v and f shaders almost exactly
+	      xyz = vector3d(newpos);
+	      norm = vector3d(newnorm);
+
+	      eyeCoord = modmat.mult(xyz);
+	      
+	      perpLeft = (((eyeCoord.normalize()).cross(upvec)).normalize()).scale(a*hmd);
+	      perpDown = (((eyeCoord.normalize()).cross(rightvec)).normalize()).scale(a*hmd);
+	      
+
+	      botleft = eyeCoord + perpLeft + perpDown;
+	      topright = eyeCoord - perpLeft - perpDown;
+	      
+	      gluProject(botleft.xyz[0], botleft.xyz[1], botleft.xyz[2],
+			 identity, projectionmat, vp,
+			 &x1, &y1, &z1);
+
+	      gluProject(topright.xyz[0], topright.xyz[1], topright.xyz[2],
+			 identity, projectionmat, vp,
+			 &x2, &y2, &z2);
+	      
+	      //bottom left is actually bottom right
+	      // top right is actually top left
+	      //WTF!!
+
+	      xmin = std::max(0, int(x2));
+	      xmax = std::min(int(windWidth), int(ceil(x1)));
+	      ymin = std::max(0, int(y1));
+	      ymax = std::min(int(windHeight), int(ceil(y2)));
+	      //std::cout << "updating range: x1 x2, y1 y2: " << xmin <<
+	      //' ' << xmax << ' ' << ymin << ' ' << ymax << std::endl;
+	      //splat the w coord
+	      int offset;
+	      float w, dist, sqrtnrm, dot;
+	      for(int fragy = ymin; fragy < ymax; ++fragy)
+		{
+		  for(int fragx = xmin; fragx < xmax; ++fragx)
+		    {
+		      //compute distance:
+		      offset = (fragy*windWidth + fragx)*3;
+
+
+		      dist = sqrt(pow(newpos[0] - objectCoords[offset], 2) +
+				  pow(newpos[1] - objectCoords[offset+1],2)+
+				  pow(newpos[2] - objectCoords[offset+2],2));
+		      
+		      if(dist >= a*hmd)
+			continue;
+		      dot = newnorm[0]*objectNormals[offset] +
+			newnorm[1]*objectNormals[offset +1] +
+			newnorm[2]*objectNormals[offset +2];
+		      dot = std::min(1.0f, dot);
+		      sqrtnrm = sqrt(1.0 - dot);
+
+		      w = 1.0/((dist/hmd) + sqrtnrm);
+		      if (w >= 1.0/a)
+			{
+			  splatBuffer[(fragy*windWidth +fragx)*4 + 3] += w;
+			}
+		      
+		    }
+
+		}
+
+	    }
+	}
+    }
+
+  std::cout << "about to splat new records" << std::endl;
+  glUseProgram(splatProgram);
+  //splat the newly added records
+  for(size_t i = startNewRecords; i < records.size(); ++i)
+    {
+      glUniform1f(splatUniform,records[i].hmd*a);
+      glUniform1f(splatHmdUniform, records[i].hmd);
+      glBegin(GL_QUADS);
+      for(int j = 0; j < 4; ++j)
+	{
+	  glVertexAttrib1f(splatAttribute, 3 - j);
+	  glNormal3fv(records[i].norm);
+	  glColor3fv(records[i].irradiance);
+	  glVertex3fv(records[i].pos);
+	}
+      glEnd();
+    }
+  std::cout << records.size() - startNewRecords << " new records created" <<
+    std::endl;
+  glFlush();
+
+
 }
 
 
@@ -451,10 +712,10 @@ void Scene::warmupCache(int numRecs)
       normal[1] = objectNormals[offset +1];
       normal[2] = objectNormals[offset +2];
       
-      std::cout << "generating record at: (" << x << ", " << y <<
+      /*std::cout << "generating record at: (" << x << ", " << y <<
 	") with worldCoord: (" << point[0] << ", " << point[1] << 
 	", " << point[2] << ") and normal: (" << normal[0] << ", " <<
-	normal[1] << ", " << normal[2] << ")" << std::endl;
+	normal[1] << ", " << normal[2] << ")" << std::endl;*/
       
       
       generateRecord(point, normal);
@@ -470,7 +731,7 @@ void Scene::directIllumination()
   view->getEye(eye);
   view->getCenter(eyedir);
 
-  drawAtPoint(eye, eyedir, up, 0, windWidth, windHeight);
+  drawAtPoint(eye, eyedir, up, directFBOID, windWidth, windHeight);
 
   //glutSwapBuffers();
 
@@ -481,8 +742,8 @@ void Scene::directIllumination()
   //  glutSwapBuffers();
   //std::cin.get();
   //Helpers::getGLErrors("End of directIllumination");
-  drawAtPoint(eye, eyedir, up, 0, windWidth, windHeight);
-  glutSwapBuffers();
+  drawAtPoint(eye, eyedir, up, directFBOID, windWidth, windHeight);
+  //glutSwapBuffers();
   glIsShader(999);//debug
 
 }
@@ -491,7 +752,8 @@ void Scene::generateRecord(float *pos, float* normal)
 {
   float eps = .00001;
   float up[3];
-  if((fabs(normal[0]) <= eps) && (fabs(normal[1] -1) <= eps) &&
+  if((fabs(normal[0]) <= eps) && ((fabs(normal[1] -1) <= eps) ||
+				  (fabs(normal[1] +1) <= eps)) &&
      (fabs(normal[2]) <= eps))
     {
       up[0] = 1;
@@ -562,11 +824,16 @@ void Scene::generateRecord(float *pos, float* normal)
 
 	  }
     }
-  if (hmdsum < .0001)
-    return;
+
   float hmd = (recordWidth*recordWidth)/hmdsum;
-  std::cout << "sum: " << r << ' ' << g << ' ' << b << std::endl;
-  std::cout << "hmd: " << hmd << std::endl;
+  //std::cout << "sum: " << r << ' ' << g << ' ' << b << std::endl;
+  //std::cout << "hmd: " << hmd << std::endl;
+
+  if (hmdsum < .0001 || (r < .0001 && g < .0001 && b < .0001))
+    {
+      glIsTexture(999);
+      return;
+    }
   rec.pos[0] = pos[0];
   rec.pos[1] = pos[1];
   rec.pos[2] = pos[2];
@@ -771,6 +1038,39 @@ void Scene::loadShadowShader()
 }
 
 
+void Scene::loadFinalShader()
+{
+  GLuint fragHandle;
+  fragHandle = loadShader("finalFragmentShader.c", GL_FRAGMENT_SHADER);
+  finalProgram = glCreateProgram();
+  glAttachShader(finalProgram, fragHandle);
+  glLinkProgram(finalProgram);
+
+  GLint result;
+  glGetProgramiv(finalProgram, GL_LINK_STATUS, &result);
+  if(! result)
+    {
+      GLint logLength;
+      std::cerr << "final shader link failed : " << std::endl;
+      glGetProgramiv(finalProgram, GL_INFO_LOG_LENGTH, &logLength);
+      char * log = new char[logLength];
+      GLint actualLength;
+      glGetProgramInfoLog(finalProgram, logLength, &actualLength, log);
+      std::cerr << "Error: " << log << std::endl;
+
+      /*GLint shaderLen;
+      glGetProgramiv(handle, GL_SHADER_SOURCE_LENGTH, &shaderLen);
+      std::cerr << "Shader length: " << shaderLen << std::endl;
+      */
+      delete [] log;
+    }
+
+  finalDirect = glGetUniformLocation(finalProgram, "direct");
+  finalSplat = glGetUniformLocation(finalProgram, "splat");
+  finalWindSize = glGetUniformLocation(finalProgram, "windSize");
+  Helpers::getGLErrors("end of load final shader");
+}
+
 void Scene::loadSplatShader()
 {
   GLuint vShaderHandle, fShaderHandle;
@@ -809,6 +1109,8 @@ void Scene::loadSplatShader()
   splatHmdUniform = glGetUniformLocation(splatProgram, "hmd");
   splatWorldPosUniform = glGetUniformLocation(splatProgram, "worldPoss");
   splatWorldNormUniform = glGetUniformLocation(splatProgram, "worldNorms");
+  splatDiffuseUniform = glGetUniformLocation(splatProgram, 
+					     "diffuseMaterial");
   splatAttribute = glGetAttribLocation(splatProgram, "inCorner");
   splatAUniform = glGetUniformLocation(splatProgram, "a");
 
@@ -870,7 +1172,7 @@ void Scene::readCoordNormals()
 
   GLuint fboid;
   glGenFramebuffersEXT(1, &fboid);
-  glGenTextures(3, coordTexBase);
+  glGenTextures(4, coordTexBase);
   glBindTexture(GL_TEXTURE_2D, coordTexBase[0]);
   
 
@@ -894,6 +1196,16 @@ void Scene::readCoordNormals()
 	       0, GL_RGBA, GL_FLOAT, NULL);
 
   glBindTexture(GL_TEXTURE_2D, coordTexBase[2]);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, windWidth, windHeight,
+	       0, GL_RGBA, GL_FLOAT, NULL);
+
+  glBindTexture(GL_TEXTURE_2D, coordTexBase[3]);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
@@ -908,18 +1220,21 @@ void Scene::readCoordNormals()
 			 GL_TEXTURE_2D, coordTexBase[0], 0);
   glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT1_EXT,
 			 GL_TEXTURE_2D, coordTexBase[1], 0);
+  glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT2_EXT,
+			 GL_TEXTURE_2D, coordTexBase[2], 0);
 
   glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT,
-			    GL_TEXTURE_2D, coordTexBase[2], 0);
+			    GL_TEXTURE_2D, coordTexBase[3], 0);
 
   glViewport(0,0, windWidth, windHeight);
   glCullFace(GL_BACK);
   glEnable(GL_DEPTH_TEST);
 
   glReadBuffer(GL_NONE);
-  const GLenum drawbufs[2] = {GL_COLOR_ATTACHMENT0_EXT, 
-			      GL_COLOR_ATTACHMENT1_EXT};
-  glDrawBuffers(2, drawbufs);
+  const GLenum drawbufs[3] = {GL_COLOR_ATTACHMENT0_EXT, 
+			      GL_COLOR_ATTACHMENT1_EXT,
+			      GL_COLOR_ATTACHMENT2_EXT};
+  glDrawBuffers(3, drawbufs);
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   float eye[3];
